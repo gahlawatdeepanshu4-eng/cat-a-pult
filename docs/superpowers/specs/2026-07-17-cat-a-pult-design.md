@@ -1,122 +1,188 @@
 # Cat-a-pult — Design
 
-**Date:** 2026-07-17
-**Status:** Approved, ready for implementation planning
+**Date:** 2026-07-17 (rewritten after reference footage arrived)
+**Status:** Approved in outline, superseded v1's side-on design
+
+## What happened to v1
+
+The first version of this spec described a side-on, Angry-Birds-style
+trajectory game: camera scrolling left to right, drag-to-launch, land the cat
+in a target zone on the ground. That was designed from a one-line verbal
+description and it was wrong. Reference footage of the original game showed a
+completely different shape of game. v1 is abandoned, not patched — the
+difference is in the foundation, not the details.
+
+The v1 code remains in git history. Nothing below reuses its physics, camera,
+levels, or rendering.
 
 ## Summary
 
-A single-player mobile web game. The player drags back a catapult to launch a cat, aiming to land it in a distant target zone and hit bonus moving targets along the way. Rebuilt from scratch as a personal project, inspired by an old PC game of the same name. No original source or assets are available; all mechanics here are newly designed.
+A single-player game. You stand behind a slingshot facing an arena wall
+pierced with holes. A cat sits in the sling. Aim with a crosshair, hold to
+charge power, release to fling the cat into the screen at the wall. Get it
+through a hole to score. You have a limited number of cats.
+
+## Reference
+
+Rebuilt from footage of the original Flash game. Observed directly in the
+frames:
+
+- Fixed, forward-facing view. The camera never moves.
+- An arena wall across the back with **7 holes**: 3 round holes on an upper
+  row, 4 arched holes on a lower row.
+- A Y-shaped slingshot at bottom-centre with a cat loaded in the pouch.
+- A crosshair reticle that moves with the pointer.
+- A vertical **power meter** on the left, filling green → orange → red while
+  charging.
+- A cat-icon **ammo counter** top-right, counting down (10 → 9 → 8 → 7).
+- A **score** readout, rising in steps of **20**.
+- Cats wandering loose on the arena floor between the player and the wall.
 
 ## Goals
 
-- A game that is genuinely fun to play in short bursts on an Android phone.
-- Installable to the home screen and playable offline.
-- Simple enough that new levels are data, not code.
+- Reproduce the feel of the original: aim, charge, fling, watch it recede.
+- Runs on an Android phone, installable, offline.
 
 ## Non-goals
 
-- Multiplayer, accounts, leaderboards, or any backend.
-- App store distribution.
-- iOS support. Chrome on Android is the only target.
-- Audio. Deliberately excluded from v1; may be added later.
-- Destructible structures or block physics (Angry Birds style). Targets are zones and moving objects, not stacks to topple.
+- Multiplayer, accounts, leaderboards, backend.
+- iOS support. Chrome on Android only.
+- Audio in v1.
+- Blood and gore. The original has heavy blood splatter; this version leaves
+  it out unless asked for.
+- Real 3D. A pseudo-3D projection is enough and much simpler.
 
-## Platform and constraints
+## Platform
 
-- **Target device:** Android phone, Chrome browser.
-- **Orientation:** Landscape, locked via the PWA manifest. A "rotate your device" overlay covers the game in portrait rather than reflowing the layout.
-- **Distribution:** Static files on a free host, installable as a PWA.
-- **Stack:** HTML5 Canvas and vanilla JavaScript. No framework, no build step, no dependencies.
-- **iOS-specific PWA workarounds are intentionally skipped** (Apple touch-icon meta tags, iOS safe-area insets, Safari standalone-mode quirks). The codebase is one codebase regardless; only these accommodations are omitted.
+- **Orientation:** landscape, locked. The reference footage is a landscape
+  game letterboxed inside a portrait phone recording, so landscape stands.
+- **Stack:** HTML5 Canvas, vanilla JS, no framework, no build step, no deps.
+- **Distribution:** static files, installable PWA.
 
 ## Core gameplay loop
 
-The catapult sits centered on screen at level start. The player drags back from the cat: drag distance sets power, drag angle sets launch angle, slingshot-style. On release the cat flies a parabolic arc under gravity and the camera scrolls to follow it, so levels extend well beyond one screen-width to the right.
+A cat sits in the slingshot at bottom-centre. The player's pointer drives a
+**crosshair**, which sets aim: horizontal position sets left/right direction,
+vertical position sets elevation. **Press and hold** to charge the power
+meter; **release** to fire.
 
-Each level contains:
+The cat flies *into the screen*, away from the camera, under gravity. As it
+recedes it is drawn smaller. When it reaches the wall's depth one of three
+things happens:
 
-- A **target zone**: a marked strip of ground out in the distance. Landing the cat inside it is a hit.
-- Optionally a **moving target**: slides back and forth along a set path, worth bonus points if struck in flight or on landing.
+- It passes through a **hole** → score **+20**, cat is gone.
+- It hits the **wall** → no score, cat drops.
+- It falls short and lands on the sand before reaching the wall → no score.
 
-The player gets a limited number of shots per level, tuned per level, roughly three to five. Each shot scores distance points plus any moving-target bonus.
+Either way the shot ends, ammo decrements, and the next cat loads.
 
-**Level clear:** land the cat in the target zone before shots run out. This is the only win condition.
-**Level fail:** shots run out. The level resets for a fresh retry. There are no lives and no game over.
+**Run ends** when ammo reaches zero. Final score is shown; the player can
+restart.
 
-**Score is a rating, not a gate.** Clearing a level is binary: the cat landed in the zone or it did not. Score measures how well the player did and drives the best-score-per-level record. It never unlocks or clears anything.
+Ammo starts at **10 cats**. There are no levels and no lives — one continuous
+run against a score, matching the reference.
 
-This split is deliberate. Precision aiming is the core skill, and a score-based alternate win condition would let the player win without aiming well, implying the target zone is optional. It would also leave the player unsure what any given shot is for. The "don't let the player get stuck" problem that a score fallback normally solves is already handled by unlimited retries. Keeping score as a rating instead makes the moving target optional mastery content, the reason to replay a level once it can be cleared reliably, rather than a competing route to victory.
+## Coordinate system
 
-A shot ends when the cat comes to rest or leaves the level bounds. The camera then pans back to the catapult for the next shot.
+World space is 3D and right-handed from the player's point of view:
 
-## Screen and presentation
+- **x** — left/right, 0 at the arena centre, positive right.
+- **y** — up/down, 0 at the sand, positive up.
+- **z** — depth, 0 at the slingshot, positive **into the screen** toward the
+  wall. The wall stands at `WALL_Z`.
 
-Fullscreen canvas sized to the device viewport and scaled for device pixel ratio for sharpness.
+Gravity acts on **y** only.
 
-The game world uses its own coordinate system with a fixed virtual height (e.g. 720 units). Rendering scales that virtual space to the actual screen, so the game plays identically regardless of the phone's exact resolution.
+### Projection
 
-**Art:** emoji sprites drawn to canvas. Cat is an emoji; moving targets are emoji; catapult and ground are simple shapes. A parallax background of a few bands scrolling at different speeds conveys distance as the camera follows.
+A pinhole projection turns world space into screen space:
 
-**HUD** (screen-fixed, does not scroll): shots remaining, current score, level number, and best score for the level.
+```
+scale   = FOCAL / (z + FOCAL)
+screenX = centreX + x * scale * unit
+screenY = horizonY - (y - EYE_Y) * scale * unit
+```
 
-**Trajectory hint:** during drag, a short dotted arc shows initial direction and power, fading out after a few points. It aids aiming without revealing the full shot.
+Objects further away (larger z) get a smaller `scale`, so they shrink and
+drift toward the horizon. This is the whole 3D illusion. `render.js` is the
+only module that knows about it.
 
-## Architecture
-
-Each module has one responsibility and a narrow interface.
+## Modules
 
 | Module | Responsibility |
 |---|---|
-| `main.js` | Boots the game, owns the requestAnimationFrame loop, wires modules together |
-| `physics.js` | Pure projectile math. Given position, velocity, gravity, dt, returns new position. No canvas, no DOM |
-| `input.js` | Touch drag to `{angle, power}` on release. Owns nothing else |
-| `level.js` | Loads a level definition; tracks shots, score, and pass/fail state for the current attempt |
-| `levels.js` | Plain data. Array of level definitions: zone position and width, moving target config, shot limit |
-| `camera.js` | Tracks the visible region of the world; follows the cat, pans back to the catapult |
-| `render.js` | Draws world and HUD from game state. Read-only, never mutates state |
-| `storage.js` | localStorage read/write for progress and best scores. Wraps failures so a blocked storage API cannot crash the game |
+| `constants.js` | Tuning values and arena geometry |
+| `ballistics.js` | Pure 3D projectile maths. No canvas, no DOM |
+| `project.js` | Pure world→screen projection maths |
+| `arena.js` | Hole layout, hole/wall hit tests, wandering-cat motion |
+| `game.js` | The rules: aim, charge, fire, resolve, ammo, score |
+| `input.js` | Pointer → crosshair position, press/release for charge |
+| `render.js` | All drawing. Reads state, never writes it |
+| `storage.js` | High score in localStorage, with safe fallback |
+| `main.js` | Boot, loop, wiring |
 
-**The invariant that keeps this clean:** state lives in `level.js` and the main loop. `render.js` and `physics.js` are pure functions of that state. This makes physics and level rules testable without a browser, and lets presentation change without touching behaviour.
+`ballistics.js`, `project.js`, `arena.js`, and `game.js` are pure and unit
+tested in Node with no browser.
 
-Level definitions are data, so adding levels later means appending to an array with no code changes.
+## Aiming and power
+
+- **Crosshair x** maps to a launch heading (angle away from straight ahead),
+  clamped so the cat cannot be fired behind the player.
+- **Crosshair y** maps to elevation. The upper row of holes needs more
+  elevation than the lower row.
+- **Power** charges while held, on a loop that fills over `CHARGE_SECONDS`
+  and clamps at full rather than resetting. Power scales launch speed.
+
+Hitting an upper hole should require noticeably more power or elevation than
+a lower one, so the two rows are meaningfully different targets.
+
+## Scoring
+
+**+20 per cat through a hole.** That is the only way to score, matching the
+observed +20 steps in the footage.
+
+Assumption flagged during design: the cats wandering the arena floor are
+scenery, not targets. If they turn out to be scoreable, that is an additive
+change to `arena.js` and `game.js`.
+
+Best score persists in `localStorage`.
 
 ## Data and persistence
 
-No backend, no accounts. All state persists to `localStorage` under a single key holding one small object:
-
-- Levels unlocked
-- Best score per level
-- Total shots taken
-
-`storage.js` wraps every read and write in try/catch. If storage is unavailable or full, the game continues with in-memory state and does not persist between sessions. A save failure must never interrupt a shot.
-
-On read, the saved object is validated against its expected shape before use. A corrupted or partially written entry falls back to a fresh default rather than crashing on load.
-
-**Accepted tradeoff:** progress lives on the device and browser it was played in, and is lost if site data is cleared. This is acceptable for a solo game and is the cost of having no backend.
+One `localStorage` key holding `{version, bestScore, totalCatsFired}`.
+Every read and write is wrapped; a blocked or full storage degrades to
+in-memory play. A corrupt entry falls back to defaults. A save failure must
+never interrupt a shot.
 
 ## Error handling
 
-- The main loop wraps each frame's update in try/catch. An exception cannot leave a frozen black canvas.
-- Physics clamps `dt`. If the tab is backgrounded and resumed, a large time delta must not teleport the cat through the ground.
-- A cat that leaves the level bounds, or moves below a speed threshold for a short duration, is considered at rest and ends the shot. No shot can hang indefinitely.
+- The main loop wraps each frame in try/catch.
+- `dt` is clamped so a backgrounded tab cannot teleport the cat through the
+  wall on resume.
+- A shot always terminates: it either reaches the wall plane, lands on the
+  sand, or leaves the arena bounds.
 
 ## Testing
 
-Physics and level rules are pure functions and get unit tests runnable in Node with no browser:
+Unit tested in Node, no browser:
 
-- Trajectory math
-- At-rest detection
-- Hit/miss zone logic
-- Shot-limit rules
-- Score accumulation (distance plus moving-target bonus) and best-score updates
-- Storage fallback on failure
+- Ballistics: trajectory, apex, no mutation of inputs.
+- Projection: distant things are smaller; a point at the wall projects inside
+  its hole.
+- Arena: hole hit/miss including exact edges, wandering-cat motion staying in
+  bounds.
+- Game rules: charge clamping, ammo decrement, score only on hole, run ends
+  at zero ammo.
+- Storage: validation, corrupt data, throwing storage.
 
-Rendering and touch feel are not unit tested. Those are verified by driving the game in a browser preview at phone dimensions.
+Reachability, proven by test rather than by eye: **every hole must be
+hittable** by some (aim, power) combination, and the upper row must require
+more than the lower row. A hole that no shot can reach is a dead target and
+no unit test on the pieces would reveal it.
 
-## Scope of v1
+Rendering and feel are verified by playing.
 
-**Five levels.** Enough to introduce the mechanics and vary them: early levels teach drag-to-launch against a simple distance zone, later ones introduce moving targets and tighter zones. Levels are data, so extending beyond five later requires no code changes.
+## Open items
 
-## Open items for implementation planning
-
-- Exact tuning values (gravity, power scaling, at-rest thresholds, virtual world height) to be determined by feel during implementation. These cannot be settled on paper.
+- Exact tuning (gravity, focal length, wall depth, charge rate, speed range)
+  by feel during implementation.
