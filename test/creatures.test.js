@@ -77,22 +77,43 @@ test('a wandering creature turns at the arena edge instead of leaving', () => {
   }
 });
 
-test('creatures do not jump when the level does not allow it', () => {
-  let c = { ...spawn('cat', {}, fixedRand()), hopIn: 0.01, airborne: false, y: 0 };
-  for (let i = 0; i < 60; i++) c = stepCreature(c, 1 / 60, { canJump: false, rand: fixedRand() });
+test('creatures never jump when the level gives no jump chance', () => {
+  // rand()=>0 makes every jump roll succeed if one is even attempted, so a
+  // creature that stays down proves the zero chance really gates the hop.
+  let c = { ...spawn('cat', {}, fixedRand()), airborne: false, y: 0 };
+  for (let i = 0; i < 120; i++) c = stepCreature(c, 1 / 60, { jumpChance: 0, rand: () => 0 });
   assert.equal(c.y, GROUND_Y);
   assert.equal(c.airborne, false);
 });
 
-test('creatures jump when the level allows it, and land again', () => {
-  let c = { ...spawn('cat', {}, fixedRand()), hopIn: 0.01, airborne: false, y: 0 };
+test('a creature hops when the level gives a jump chance, and lands again', () => {
+  let c = { ...spawn('cat', {}, fixedRand()), airborne: false, y: 0 };
   let peak = 0;
   for (let i = 0; i < 240; i++) {
-    c = stepCreature(c, 1 / 60, { canJump: true, rand: fixedRand() });
+    c = stepCreature(c, 1 / 60, { jumpChance: 0.5, rand: () => 0 });
     peak = Math.max(peak, c.y);
   }
   assert.ok(peak > 0, 'a jump should leave the ground');
   assert.ok(c.y >= GROUND_Y, 'and must not sink through it');
+});
+
+// The heart of "jumping gets more random as you level up": a bigger jump
+// chance must actually produce more hops over the same stretch of time.
+test('a higher jump chance makes a creature hop more often', () => {
+  function countHops(jumpChance) {
+    let seed = 1;
+    const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    let c = { ...spawn('cat', {}, () => 0.5), airborne: false, y: 0 };
+    let hops = 0;
+    let wasAirborne = false;
+    for (let i = 0; i < 4000; i++) {
+      c = stepCreature(c, 1 / 60, { jumpChance, rand });
+      if (c.airborne && !wasAirborne) hops++;
+      wasAirborne = c.airborne;
+    }
+    return hops;
+  }
+  assert.ok(countHops(0.6) > countHops(0.1), 'more jump chance should mean more hops');
 });
 
 test('flyers stay within their altitude band', () => {

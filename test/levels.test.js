@@ -2,8 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { LEVELS, levelSpec } from '../src/levels.js';
 import {
-  TOTAL_LEVELS, FIRST_JUMP_LEVEL, FIRST_TREX_LEVEL, FIRST_FLYING_LEVEL,
-  FLYING_CATS_PER_LEVEL, FLYING_TREXES_PER_LEVEL,
+  TOTAL_LEVELS, FIRST_JUMP_LEVEL, FIRST_TREX_LEVEL, MAX_JUMP_CHANCE,
 } from '../src/constants.js';
 
 test('there are twenty levels', () => {
@@ -34,24 +33,37 @@ test('dodging never gets easier as levels rise', () => {
 });
 
 test('jumping starts at the second level, not the first', () => {
-  assert.equal(LEVELS[0].canJump, false);
-  assert.equal(levelSpec(FIRST_JUMP_LEVEL).canJump, true);
+  assert.equal(LEVELS[0].jumpChance, 0);
+  assert.ok(levelSpec(FIRST_JUMP_LEVEL).jumpChance > 0);
+});
+
+test('jumping gets more likely — more random — as levels rise', () => {
+  for (let i = 1; i < LEVELS.length; i++) {
+    assert.ok(LEVELS[i].jumpChance >= LEVELS[i - 1].jumpChance,
+      `level ${i + 1} jumps less than the one before it`);
+  }
+  assert.ok(LEVELS[19].jumpChance > LEVELS[1].jumpChance,
+    'the last level should be far jumpier than the first jumping level');
+});
+
+test('the jump chance never exceeds its cap', () => {
+  for (const l of LEVELS) {
+    assert.ok(l.jumpChance <= MAX_JUMP_CHANCE, `level ${l.n} jump is ${l.jumpChance}`);
+  }
+});
+
+test('no level ever spawns a flying creature', () => {
+  for (const l of LEVELS) {
+    assert.equal(l.flyingCats, undefined, `level ${l.n} still has flyingCats`);
+    assert.equal(l.flyingTrexes, undefined, `level ${l.n} still has flyingTrexes`);
+    assert.equal(l.targets, l.groundCats + l.groundTrexes,
+      `level ${l.n} targets include something other than ground creatures`);
+  }
 });
 
 test('T-rexes appear from level two', () => {
   assert.equal(LEVELS[0].groundTrexes, 0);
   assert.ok(levelSpec(FIRST_TREX_LEVEL).groundTrexes > 0);
-});
-
-test('flying creatures only appear after the third level, two of each', () => {
-  for (let n = 1; n < FIRST_FLYING_LEVEL; n++) {
-    assert.equal(levelSpec(n).flyingCats, 0, `level ${n} should have no flyers`);
-    assert.equal(levelSpec(n).flyingTrexes, 0);
-  }
-  for (let n = FIRST_FLYING_LEVEL; n <= TOTAL_LEVELS; n++) {
-    assert.equal(levelSpec(n).flyingCats, FLYING_CATS_PER_LEVEL);
-    assert.equal(levelSpec(n).flyingTrexes, FLYING_TREXES_PER_LEVEL);
-  }
 });
 
 test('every level has at least one target', () => {

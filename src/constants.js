@@ -45,10 +45,9 @@ export const CAT_POINTS = 20;
 export const TREX_POINTS = 50;
 export const JUMP_SPEED = 240;
 export const DODGE_SPEED = 300;
-// Flyers sit low in the arc's forgiving middle. Higher up (the old 170..380)
-// they were only reachable by landing the arc's exact apex on them, a razor
-// shot that felt impossible even though a search could find it. Low enough to
-// hit comfortably, high enough to still read as airborne above the walkers.
+// Kept for the (currently unused) flyer capability in creatures.js. No level
+// spawns flyers, but the engine and its tests still exercise the altitude band
+// so it is trivial to bring flying back later.
 export const FLY_MIN_Y = 95;
 export const FLY_MAX_Y = 210;
 
@@ -57,6 +56,8 @@ export const TOTAL_LEVELS = 20;
 export const MAX_DODGE_CHANCE = 0.62;  // never 1: an always-dodging target is unhittable
 export const FIRST_JUMP_LEVEL = 2;
 export const FIRST_TREX_LEVEL = 2;
-export const FIRST_FLYING_LEVEL = 4;
-export const FLYING_CATS_PER_LEVEL = 2;
-export const FLYING_TREXES_PER_LEVEL = 2;
+// The per-second chance a grounded creature spontaneously hops, at the top
+// level. It ramps up from zero, so higher levels are a jumpier, less
+// predictable arena. A rate, not a probability: it is multiplied by the frame
+// time, so the jump frequency is the same on a fast or a slow phone.
+export const MAX_JUMP_CHANCE = 0.6;

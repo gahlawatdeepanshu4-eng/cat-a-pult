@@ -14,9 +14,11 @@ scratch, no backend, no audio.
 - **Drag to aim, Angry Birds style.** Pull back, let go. Drag direction sets
   aim, drag length sets power, and there is **no timer**. A drag too short to
   be a shot cancels instead of firing a dud.
-- **Targets:** cat 20 points, T-rex 50. They wander, and per level gain
-  dodging (ramps from level 1), jumping (level 2+), and flying (level 4+: two
-  flying cats and two flying T-rexes each level).
+- **Targets:** cat 20 points, T-rex 50. They wander on the sand, and per level
+  gain dodging (ramps from level 1) and jumping (level 2+). **No flying** — all
+  creatures stay on the ground. Jumping is a random per-second hop chance that
+  climbs with the level, so some creatures walk while others hop, and the whole
+  arena gets jumpier and less predictable the higher you go.
 - **20 levels** generated from a formula in `levels.js`. Clear every creature
   before the rocks run out. Failing just restarts the level: no lives, no game
   over. Progress and best scores persist in localStorage.
@@ -83,9 +85,14 @@ blocks localhost by extension permission, so I cannot drive it live.
 The player (Deepanshu) plays on an Android phone and reports back. Recently
 changed and most in need of a real play-test:
 - Do the **vector creatures** read as solid (the "glassy" complaint)?
-- Are **flyers** now comfortably reachable at y=95..210?
+- Does the **random jumping** feel good? Is level 2 gentle enough and level 20
+  chaotic-but-fair? (Tune `MAX_JUMP_CHANCE` in `constants.js`.)
 - Does **drag aiming** feel right, and is the **landing ring** a useful depth
   cue or clutter?
+
+Note: flying was **removed** this session (all creatures are ground-based now).
+The flyer engine code in `creatures.js` is kept but dormant — no level spawns a
+flyer — so the design spec's "Flying (level 4+)" section is now out of date.
 
 ## Gotchas for the next session
 

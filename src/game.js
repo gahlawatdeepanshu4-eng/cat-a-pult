@@ -13,8 +13,6 @@ export function createRun(levelNumber, rand = Math.random) {
   const creatures = [
     ...Array.from({ length: spec.groundCats }, () => spawn('cat', { flying: false }, rand)),
     ...Array.from({ length: spec.groundTrexes }, () => spawn('trex', { flying: false }, rand)),
-    ...Array.from({ length: spec.flyingCats }, () => spawn('cat', { flying: true }, rand)),
-    ...Array.from({ length: spec.flyingTrexes }, () => spawn('trex', { flying: true }, rand)),
   ];
 
   return {
@@ -46,7 +44,7 @@ export function aliveCount(run) {
 }
 
 export function tick(run, dt, rand = Math.random) {
-  const opts = { canJump: run.spec.canJump, rand };
+  const opts = { jumpChance: run.spec.jumpChance, rand };
 
   if (run.phase !== 'flying') {
     return { ...run, creatures: stepAll(run.creatures, dt, opts) };

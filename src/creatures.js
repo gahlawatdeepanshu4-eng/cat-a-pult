@@ -35,7 +35,6 @@ export function spawn(kind, { flying = false }, rand) {
     speed: KIND[kind].speed * (0.7 + rand() * 0.6),
     vy: 0,
     airborne: false,
-    hopIn: 0.8 + rand() * 2.4,
     dodgedThisShot: false,
   };
 }
@@ -77,22 +76,21 @@ function fall(c, dt) {
 
 export function stepCreature(c, dt, opts) {
   if (!c.alive) return c;
-  const { canJump = false, rand = Math.random } = opts ?? {};
+  const { jumpChance = 0, rand = Math.random } = opts ?? {};
 
   const { x, dir } = wander(c, dt);
   let next = { ...c, x, dir };
 
   if (c.flying) return { ...next, ...bob(next, dt) };
 
+  // A grounded creature hops on a memoryless dice roll each frame. There is no
+  // countdown, so the timing is genuinely unpredictable — you cannot learn a
+  // rhythm and pre-aim the gap. jumpChance is a per-second rate, so scaling it
+  // by dt keeps the hop frequency identical whatever the frame rate.
   if (next.airborne) {
     next = { ...next, ...fall(next, dt) };
-  } else if (canJump) {
-    const hopIn = next.hopIn - dt;
-    if (hopIn <= 0) {
-      next = { ...next, vy: JUMP_SPEED, airborne: true, hopIn: 1.2 + rand() * 2.6 };
-    } else {
-      next = { ...next, hopIn };
-    }
+  } else if (jumpChance > 0 && rand() < jumpChance * dt) {
+    next = { ...next, vy: JUMP_SPEED, airborne: true };
   }
   return next;
 }

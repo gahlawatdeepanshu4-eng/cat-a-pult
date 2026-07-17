@@ -70,7 +70,7 @@ function killOne(kind) {
   const run = {
     ...base,
     creatures: [target],
-    spec: { ...base.spec, dodgeChance: 0, canJump: false },
+    spec: { ...base.spec, dodgeChance: 0, jumpChance: 0 },
     rocksLeft: 5,
   };
   const aim = aimFromDrag(STRAIGHT_DRAG.dx, STRAIGHT_DRAG.dy, H);
@@ -134,7 +134,7 @@ function canKillEvery(levelNumber) {
     const solo = {
       ...base,
       creatures: [{ ...creature, dodgedThisShot: false }],
-      spec: { ...base.spec, dodgeChance: 0, canJump: false },
+      spec: { ...base.spec, dodgeChance: 0, jumpChance: 0 },
     };
     // Fine enough that the step between neighbouring shots is smaller than a
     // creature. A coarse sweep steps straight over targets and reports a

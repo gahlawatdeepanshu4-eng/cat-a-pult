@@ -209,8 +209,8 @@ function drawCreatures(ctx, creatures, view) {
   for (const c of living) {
     const size = radiusOf(c) * 2.2 * project(c, view).scale * view.unit;
 
-    // A shadow on the sand sells how high a jumper or flyer actually is, and
-    // gives the player a depth cue for aiming.
+    // A shadow on the sand sells how high a jumper actually is, and gives the
+    // player a depth cue for aiming.
     const g = project({ x: c.x, y: 0, z: c.z }, view);
     const lift = Math.min(1, c.y / 400);
     ctx.fillStyle = `rgba(90, 60, 30, ${0.32 * (1 - lift * 0.7)})`;

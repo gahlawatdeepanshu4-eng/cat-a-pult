@@ -1,6 +1,6 @@
 import {
   TOTAL_LEVELS, MAX_DODGE_CHANCE, FIRST_JUMP_LEVEL, FIRST_TREX_LEVEL,
-  FIRST_FLYING_LEVEL, FLYING_CATS_PER_LEVEL, FLYING_TREXES_PER_LEVEL,
+  MAX_JUMP_CHANCE,
 } from './constants.js';
 
 // The curve is a formula, not twenty hand-written blobs, so it can be tuned
@@ -11,21 +11,20 @@ export function levelSpec(n) {
 
   const groundCats = 3 + Math.floor(t * 3);
   const groundTrexes = n < FIRST_TREX_LEVEL ? 0 : 1 + Math.floor(t * 3);
-  const flyingCats = n < FIRST_FLYING_LEVEL ? 0 : FLYING_CATS_PER_LEVEL;
-  const flyingTrexes = n < FIRST_FLYING_LEVEL ? 0 : FLYING_TREXES_PER_LEVEL;
-  const targets = groundCats + groundTrexes + flyingCats + flyingTrexes;
+  const targets = groundCats + groundTrexes;
 
   return {
     n,
     groundCats,
     groundTrexes,
-    flyingCats,
-    flyingTrexes,
     targets,
     // Never reaches 1. A target that always dodges could never be killed and
     // the level could never be cleared.
     dodgeChance: +(MAX_DODGE_CHANCE * t).toFixed(3),
-    canJump: n >= FIRST_JUMP_LEVEL,
+    // Some creatures walk, some hop, and it is decided fresh each moment by a
+    // dice roll. Zero until FIRST_JUMP_LEVEL, then it climbs with the level, so
+    // the arena gets steadily more restless and unpredictable the higher you go.
+    jumpChance: n < FIRST_JUMP_LEVEL ? 0 : +(MAX_JUMP_CHANCE * t).toFixed(3),
     // Generous enough that every creature can be missed a couple of times,
     // then 10% more on top for a bit more breathing room.
     rocks: Math.ceil((targets + 4 + Math.floor(t * 6)) * 1.1),
