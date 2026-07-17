@@ -73,6 +73,13 @@ test('every level gives more rocks than there are creatures to kill', () => {
   }
 });
 
+// Every creature should be missable at least three times over.
+test('rocks give a comfortable margin above the target count', () => {
+  for (const l of LEVELS) {
+    assert.ok(l.rocks - l.targets >= 3, `level ${l.n} slack is only ${l.rocks - l.targets}`);
+  }
+});
+
 test('later levels allow at least as much slack as early ones', () => {
   const slack = (l) => l.rocks - l.targets;
   assert.ok(slack(LEVELS[19]) >= 3, 'the last level must still be missable a few times');

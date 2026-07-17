@@ -45,8 +45,12 @@ export const CAT_POINTS = 20;
 export const TREX_POINTS = 50;
 export const JUMP_SPEED = 240;
 export const DODGE_SPEED = 300;
-export const FLY_MIN_Y = 170;
-export const FLY_MAX_Y = 380;
+// Flyers sit low in the arc's forgiving middle. Higher up (the old 170..380)
+// they were only reachable by landing the arc's exact apex on them, a razor
+// shot that felt impossible even though a search could find it. Low enough to
+// hit comfortably, high enough to still read as airborne above the walkers.
+export const FLY_MIN_Y = 95;
+export const FLY_MAX_Y = 210;
 
 // Levels
 export const TOTAL_LEVELS = 20;

@@ -26,8 +26,9 @@ export function levelSpec(n) {
     // the level could never be cleared.
     dodgeChance: +(MAX_DODGE_CHANCE * t).toFixed(3),
     canJump: n >= FIRST_JUMP_LEVEL,
-    // Generous enough that every creature can be missed a couple of times.
-    rocks: targets + 4 + Math.floor(t * 6),
+    // Generous enough that every creature can be missed a couple of times,
+    // then 10% more on top for a bit more breathing room.
+    rocks: Math.ceil((targets + 4 + Math.floor(t * 6)) * 1.1),
   };
 }
 

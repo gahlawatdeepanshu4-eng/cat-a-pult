@@ -22,6 +22,120 @@ function emoji(ctx, glyph, x, y, px) {
   ctx.fillText(glyph, x, y);
 }
 
+// Vector creatures, drawn solid with a heavy outline so they read as physical
+// objects. The emoji versions looked like flat translucent stickers, which is
+// what "glassy" meant. s is the body radius in screen pixels; (x, y) is the
+// body centre. face = +1 looking right, -1 looking left.
+function outlined(ctx, s, fill, draw) {
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = Math.max(1.5, s * 0.14);
+  ctx.strokeStyle = 'rgba(30, 22, 12, 0.95)';
+  ctx.fillStyle = fill;
+  draw();
+  ctx.stroke();
+  ctx.fill();
+}
+
+function ellipse(ctx, x, y, rx, ry) {
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+}
+
+function drawVectorCat(ctx, x, y, s, face) {
+  const f = face;
+  // Tail
+  outlined(ctx, s, '#e8973a', () => {
+    ctx.beginPath();
+    ctx.moveTo(x - f * s * 0.75, y + s * 0.2);
+    ctx.quadraticCurveTo(x - f * s * 1.5, y - s * 0.1, x - f * s * 1.2, y - s * 0.8);
+  });
+  // Body
+  outlined(ctx, s, '#f2a24c', () => ellipse(ctx, x, y + s * 0.25, s * 0.95, s * 0.72));
+  // Head
+  outlined(ctx, s, '#f4ac5c', () => ellipse(ctx, x + f * s * 0.35, y - s * 0.45, s * 0.62, s * 0.56));
+  // Ears
+  outlined(ctx, s, '#f2a24c', () => {
+    for (const dx of [-0.3, 0.5]) {
+      ctx.beginPath();
+      ctx.moveTo(x + f * s * (dx), y - s * 0.85);
+      ctx.lineTo(x + f * s * (dx + 0.14), y - s * 1.25);
+      ctx.lineTo(x + f * s * (dx + 0.32), y - s * 0.9);
+      ctx.closePath();
+    }
+  });
+  // Stripes
+  ctx.strokeStyle = 'rgba(180, 110, 30, 0.8)';
+  ctx.lineWidth = Math.max(1, s * 0.09);
+  for (const dx of [-0.2, 0.15, 0.5]) {
+    ctx.beginPath();
+    ctx.moveTo(x + f * s * dx, y - s * 0.15);
+    ctx.lineTo(x + f * s * dx, y + s * 0.55);
+    ctx.stroke();
+  }
+  // Eyes
+  ctx.fillStyle = '#1e160c';
+  for (const dx of [0.12, 0.6]) {
+    ellipse(ctx, x + f * s * dx, y - s * 0.5, s * 0.09, s * 0.12);
+    ctx.fill();
+  }
+  // Nose
+  ctx.fillStyle = '#c94f3a';
+  ellipse(ctx, x + f * s * 0.36, y - s * 0.32, s * 0.08, s * 0.06);
+  ctx.fill();
+}
+
+function drawVectorTrex(ctx, x, y, s, face) {
+  const f = face;
+  // Tail
+  outlined(ctx, s, '#5b9d54', () => {
+    ctx.beginPath();
+    ctx.moveTo(x - f * s * 0.5, y + s * 0.1);
+    ctx.quadraticCurveTo(x - f * s * 1.6, y - s * 0.1, x - f * s * 1.7, y + s * 0.35);
+    ctx.quadraticCurveTo(x - f * s * 1.2, y + s * 0.4, x - f * s * 0.5, y + s * 0.5);
+    ctx.closePath();
+  });
+  // Legs
+  outlined(ctx, s, '#4f9048', () => {
+    ctx.beginPath();
+    for (const dx of [-0.05, 0.4]) {
+      if (ctx.roundRect) ctx.roundRect(x + f * s * dx, y + s * 0.5, s * 0.3, s * 0.6, s * 0.12);
+      else ctx.rect(x + f * s * dx, y + s * 0.5, s * 0.3, s * 0.6);
+    }
+  });
+  // Body
+  outlined(ctx, s, '#63a85a', () => ellipse(ctx, x, y + s * 0.15, s * 0.98, s * 0.8));
+  // Head
+  outlined(ctx, s, '#6cb162', () => {
+    ctx.beginPath();
+    ctx.moveTo(x + f * s * 0.2, y - s * 0.9);
+    ctx.quadraticCurveTo(x + f * s * 1.5, y - s * 0.85, x + f * s * 1.5, y - s * 0.3);
+    ctx.quadraticCurveTo(x + f * s * 1.4, y - s * 0.05, x + f * s * 0.4, y - s * 0.15);
+    ctx.quadraticCurveTo(x - f * s * 0.1, y - s * 0.5, x + f * s * 0.2, y - s * 0.9);
+    ctx.closePath();
+  });
+  // Teeth
+  ctx.fillStyle = '#fff';
+  for (let i = 0; i < 4; i++) {
+    ctx.beginPath();
+    const tx = x + f * s * (0.6 + i * 0.22);
+    ctx.moveTo(tx, y - s * 0.18);
+    ctx.lineTo(tx + f * s * 0.08, y - s * 0.02);
+    ctx.lineTo(tx + f * s * 0.16, y - s * 0.18);
+    ctx.closePath();
+    ctx.fill();
+  }
+  // Eye
+  ctx.fillStyle = '#1e160c';
+  ellipse(ctx, x + f * s * 0.75, y - s * 0.55, s * 0.1, s * 0.13);
+  ctx.fill();
+}
+
+function drawCreatureBody(ctx, c, x, y, s) {
+  const face = c.dir >= 0 ? 1 : -1;
+  if (c.kind === 'trex') drawVectorTrex(ctx, x, y, s, face);
+  else drawVectorCat(ctx, x, y, s, face);
+}
+
 function drawSky(ctx, view) {
   const g = ctx.createLinearGradient(0, 0, 0, view.height);
   g.addColorStop(0, '#6d4f2f');
@@ -106,7 +220,7 @@ function drawCreatures(ctx, creatures, view) {
 
     // Drawn at the shared centre, so the sprite sits exactly on its hitbox.
     const mid = project(centreOf(c), view);
-    emoji(ctx, KIND[c.kind].glyph, mid.x, mid.y, size);
+    drawCreatureBody(ctx, c, mid.x, mid.y, size * 0.5);
   }
 }
 
