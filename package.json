@@ -1,0 +1,11 @@
+{
+  "name": "cat-a-pult",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "serve": "node tools/serve.js",
+    "icons": "node tools/make-icons.js"
+  }
+}

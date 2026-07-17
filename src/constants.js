@@ -1,0 +1,12 @@
+export const VIRTUAL_HEIGHT = 720;
+export const GRAVITY = -900;
+export const MAX_LAUNCH_SPEED = 1400;
+export const MAX_DT = 1 / 30;
+export const CAT_RADIUS = 22;
+export const TARGET_RADIUS = 26;
+export const CATAPULT_X = 200;
+export const GROUND_Y = 0;
+export const MOVING_TARGET_POINTS = 500;
+export const EFFICIENCY_POINTS_PER_SHOT = 250;
+export const MAX_ACCURACY_POINTS = 1000;
+export const MIN_CAMERA_Y = 260;
