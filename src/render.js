@@ -23,24 +23,26 @@ function emoji(ctx, glyph, x, y, px) {
   ctx.fillText(glyph, x, y);
 }
 
-// Parallax: distant bands scroll slower than the world, selling depth as the
-// camera chases the cat.
+// Parallax: distant hills scroll slower than the world, selling depth as the
+// camera chases the cat. Their bases are pinned to the ground line rather
+// than given a fixed height, otherwise they float above it.
 function drawParallax(ctx, camera, view) {
+  const groundY = worldToScreen(0, GROUND_Y, camera, view).y;
   const bands = [
-    { factor: 0.15, y: 520, colour: '#2c3e5d', height: 260 },
-    { factor: 0.35, y: 380, colour: '#33506b', height: 200 },
+    { factor: 0.15, peakY: 520, colour: '#2c3e5d', width: 620 },
+    { factor: 0.35, peakY: 380, colour: '#33506b', width: 430 },
   ];
   for (const b of bands) {
+    const top = worldToScreen(0, b.peakY, camera, view).y;
+    const w = b.width * view.scale;
     const shift = -camera.x * b.factor * view.scale;
-    const top = worldToScreen(0, b.y, camera, view).y;
     ctx.fillStyle = b.colour;
-    const w = 420 * view.scale;
     for (let i = -2; i < view.width / w + 3; i++) {
       const x = ((shift % w) + w) % w + i * w;
       ctx.beginPath();
-      ctx.moveTo(x, top + b.height * view.scale);
+      ctx.moveTo(x, groundY);
       ctx.lineTo(x + w / 2, top);
-      ctx.lineTo(x + w, top + b.height * view.scale);
+      ctx.lineTo(x + w, groundY);
       ctx.closePath();
       ctx.fill();
     }
