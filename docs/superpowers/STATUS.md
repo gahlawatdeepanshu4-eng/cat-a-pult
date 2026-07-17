@@ -70,6 +70,8 @@ npm run serve   # static server on http://localhost:5173
 - **Lowered the flyer band to y=95..210** so flyers sit in the forgiving
   middle of the arc instead of only at its razor-thin apex.
 - **+10% rocks** per level.
+- Added project-scoped `/handover` and `/resume-catapult` commands (in
+  `.claude/commands/`) and this STATUS doc, so sessions hand off cleanly.
 
 ## The one big open item: FEEL IS UNVERIFIED
 
