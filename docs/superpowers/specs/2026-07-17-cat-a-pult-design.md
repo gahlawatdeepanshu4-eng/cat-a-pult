@@ -108,7 +108,10 @@ Physics and level rules are pure functions and get unit tests runnable in Node w
 
 Rendering and touch feel are not unit tested. Those are verified by driving the game in a browser preview at phone dimensions.
 
+## Scope of v1
+
+**Five levels.** Enough to introduce the mechanics and vary them: early levels teach drag-to-launch against a simple distance zone, later ones introduce moving targets and tighter zones. Levels are data, so extending beyond five later requires no code changes.
+
 ## Open items for implementation planning
 
-- Exact tuning values (gravity, power scaling, at-rest thresholds, virtual world height) to be determined by feel during implementation.
-- Number of v1 levels to be decided when writing the plan.
+- Exact tuning values (gravity, power scaling, at-rest thresholds, virtual world height) to be determined by feel during implementation. These cannot be settled on paper.
