@@ -1,93 +1,40 @@
-import { clampDt, launchVelocity, stepProjectile } from './physics.js';
-import { createCamera, followCat } from './camera.js';
-import { makeView, drawScene } from './render.js';
-import { createInput, shotFromDrag, maxDragPx } from './input.js';
-import { createRun, launch, tick, resolveShot, nextShot } from './level.js';
-import { LEVELS, getLevel } from './levels.js';
-import { loadSave, writeSave, recordClear, recordShot } from './storage.js';
-import { CATAPULT_X, GROUND_Y } from './constants.js';
+import { clampDt, chargeToPower } from './ballistics.js';
+import { makeView } from './project.js';
+import { drawScene } from './render.js';
+import { createInput, pointerToAim } from './input.js';
+import { createGame, aimFrom, beginCharge, tickCharge, release, tick } from './game.js';
+import { loadSave, writeSave, recordRun } from './storage.js';
+import { STARTING_CATS } from './constants.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
 let save = loadSave();
-let screen = 'menu'; // 'menu' | 'play' | 'cleared' | 'failed'
-let run = null;
-let camera = createCamera();
-let pendingLevel = save.unlockedLevel;
+let game = createGame();
+let screen = 'menu'; // 'menu' | 'play' | 'over'
 
-function startLevel(id) {
-  const def = getLevel(id);
-  if (!def) return;
-  run = createRun(def);
-  camera = createCamera();
+function currentAim() {
+  const p = input.getPointer();
+  const { nx, ny } = pointerToAim(p, canvas.clientWidth, canvas.clientHeight);
+  return aimFrom(nx, ny);
+}
+
+function startRun() {
+  game = createGame();
   screen = 'play';
 }
 
-// Eight sampled points of the real trajectory, then it stops. The player gets
-// direction and power, not the answer.
-function trajectoryHint(angle, power) {
-  const v = launchVelocity(angle, power);
-  let body = { x: CATAPULT_X, y: 90, vx: v.vx, vy: v.vy };
-  const pts = [];
-  for (let i = 0; i < 8; i++) {
-    body = stepProjectile(body, 1 / 20);
-    if (body.y <= GROUND_Y) break;
-    pts.push({ x: body.x, y: body.y });
-  }
-  return pts;
-}
-
-function currentShot() {
-  const drag = input.getDrag();
-  if (!drag) return null;
-  return shotFromDrag(
-    drag.currentX - drag.startX,
-    drag.currentY - drag.startY,
-    maxDragPx(canvas),
-  );
-}
-
-// Every non-play screen is dismissed the same way. Returns true if it
-// handled the gesture, so both taps and drags get the player past an
-// overlay rather than only one of them working.
-function advanceScreen() {
-  if (screen === 'menu') {
-    startLevel(pendingLevel);
-    return true;
-  }
-  if (screen === 'cleared') {
-    const next = run.def.id + 1;
-    if (getLevel(next)) {
-      pendingLevel = next;
-      startLevel(next);
-    } else {
-      screen = 'menu';
-    }
-    return true;
-  }
-  if (screen === 'failed') {
-    startLevel(run.def.id);
-    return true;
-  }
-  return false;
-}
-
 const input = createInput(canvas, {
-  onTap() {
-    advanceScreen();
+  onPress() {
+    if (screen === 'play' && game.phase === 'aiming') game = beginCharge(game);
   },
-  onLaunch(shot) {
-    if (advanceScreen()) return;
-    if (screen !== 'play' || !run || run.phase !== 'aiming') return;
-    run = launch(run, shot);
-    save = recordShot(save);
-    writeSave(save);
+  onRelease() {
+    if (screen === 'menu') { startRun(); return; }
+    if (screen === 'over') { startRun(); return; }
+    if (game.phase === 'charging') game = release(game, currentAim());
   },
 });
 
-// Assigning to canvas.width clears the canvas and resets context state, so
-// only do it when the size actually changed.
 function resize() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = Math.floor(canvas.clientWidth * dpr);
@@ -99,25 +46,16 @@ function resize() {
 }
 
 function update(dt) {
-  if (screen !== 'play' || !run) return;
-
-  if (run.phase === 'flying') {
-    run = tick(run, dt);
-    camera = followCat(camera, run.cat);
+  if (screen !== 'play') {
+    game = tick(game, dt); // strays keep milling about behind the menu
+    return;
   }
-
-  if (run.phase === 'landed') {
-    run = resolveShot(run);
-    if (run.phase === 'cleared') {
-      save = recordClear(save, run.def.id, run.score, LEVELS.length);
-      writeSave(save);
-      screen = 'cleared';
-    } else if (run.phase === 'failed') {
-      screen = 'failed';
-    } else {
-      run = nextShot(run);
-      camera = createCamera();
-    }
+  if (game.phase === 'charging') game = tickCharge(game, dt);
+  game = tick(game, dt);
+  if (game.phase === 'over') {
+    save = recordRun(save, game.score, STARTING_CATS);
+    writeSave(save);
+    screen = 'over';
   }
 }
 
@@ -125,20 +63,17 @@ function overlayLines() {
   if (screen === 'menu') {
     return [
       'Cat-a-pult',
-      'Drag back and let go to launch. Land the cat on the target.',
-      `Tap to start level ${pendingLevel}`,
+      'Aim with your finger. Hold to charge, let go to fling.',
+      'Put the cat through a hole. Tap to start.',
     ];
   }
-  if (screen === 'cleared') {
-    const next = getLevel(run.def.id + 1);
+  if (screen === 'over') {
+    const beat = game.score >= save.bestScore && game.score > 0;
     return [
-      'Landed it',
-      `Score ${run.score}  ·  Best ${save.bestScores[String(run.def.id)] ?? run.score}`,
-      next ? 'Tap for the next level' : 'That was the last level. Tap to go back.',
+      'Out of cats',
+      `Score ${game.score}${beat ? '  ·  new best!' : `  ·  best ${save.bestScore}`}`,
+      'Tap to play again',
     ];
-  }
-  if (screen === 'failed') {
-    return ['Out of cats', 'Tap to try the level again'];
   }
   return null;
 }
@@ -153,28 +88,17 @@ function frame(now) {
 
     const view = makeView(canvas);
     const dpr = canvas.width / canvas.clientWidth || 1;
-    const rawDrag = input.getDrag();
-    const drag = rawDrag && {
-      startX: rawDrag.startX * dpr,
-      startY: rawDrag.startY * dpr,
-      currentX: rawDrag.currentX * dpr,
-      currentY: rawDrag.currentY * dpr,
-    };
-    const aiming = screen === 'play' && run?.phase === 'aiming';
-    const shot = aiming ? currentShot() : null;
+    const p = input.getPointer();
+    const power = game.phase === 'charging' ? chargeToPower(game.charge) : 0;
 
     drawScene(ctx, {
-      camera,
-      cat: run?.cat ?? null,
-      target: run?.target ?? null,
-      zone: run?.def.zone ?? null,
-      drag: aiming ? drag : null,
-      hint: shot ? trajectoryHint(shot.angle, shot.power) : null,
-      hud: screen === 'play' && run ? {
-        levelName: `${run.def.id}. ${run.def.name}`,
-        shotsLeft: run.shotsLeft,
-        best: save.bestScores[String(run.def.id)] ?? 0,
-      } : null,
+      strays: game.strays,
+      cat: game.cat,
+      slingLoaded: screen === 'play' && game.phase !== 'flying',
+      pull: power,
+      aimPx: screen === 'play' && p ? { x: p.x * dpr, y: p.y * dpr } : null,
+      power,
+      hud: { catsLeft: game.catsLeft, score: game.score, best: save.bestScore },
       overlay: overlayLines(),
     }, view);
   } catch (err) {

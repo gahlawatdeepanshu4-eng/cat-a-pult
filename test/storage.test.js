@@ -1,8 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  DEFAULT_SAVE, isValidSave, loadSave, writeSave, recordClear, recordShot,
-} from '../src/storage.js';
+import { DEFAULT_SAVE, isValidSave, loadSave, writeSave, recordRun } from '../src/storage.js';
+import { pointerToAim } from '../src/input.js';
 
 class FakeStorage {
   constructor() { this.map = new Map(); }
@@ -15,16 +14,12 @@ class ThrowingStorage {
   setItem() { throw new Error('quota exceeded'); }
 }
 
-test('isValidSave accepts the default save', () => {
+test('isValidSave accepts the default and rejects junk', () => {
   assert.equal(isValidSave(DEFAULT_SAVE), true);
-});
-
-test('isValidSave rejects junk', () => {
   assert.equal(isValidSave(null), false);
-  assert.equal(isValidSave('nope'), false);
   assert.equal(isValidSave({}), false);
-  assert.equal(isValidSave({ version: 1, unlockedLevel: 'x', bestScores: {}, totalShots: 0 }), false);
-  assert.equal(isValidSave({ version: 1, unlockedLevel: 1, bestScores: null, totalShots: 0 }), false);
+  assert.equal(isValidSave({ version: 1, bestScore: 0, totalCatsFired: 0 }), false);
+  assert.equal(isValidSave({ version: 2, bestScore: 'x', totalCatsFired: 0 }), false);
 });
 
 test('loadSave returns defaults when storage is empty', () => {
@@ -33,62 +28,65 @@ test('loadSave returns defaults when storage is empty', () => {
 
 test('loadSave round-trips a written save', () => {
   const s = new FakeStorage();
-  const save = { ...DEFAULT_SAVE, unlockedLevel: 3, totalShots: 9 };
+  const save = { ...DEFAULT_SAVE, bestScore: 140, totalCatsFired: 30 };
   writeSave(save, s);
   assert.deepEqual(loadSave(s), save);
 });
 
-test('loadSave falls back to defaults on corrupt JSON', () => {
+test('loadSave survives corrupt JSON', () => {
   const s = new FakeStorage();
-  s.setItem('catapult.save.v1', '{not json');
+  s.setItem('catapult.save.v2', '{not json');
   assert.deepEqual(loadSave(s), DEFAULT_SAVE);
 });
 
-test('loadSave falls back to defaults on a valid-JSON-but-wrong-shape entry', () => {
+test('loadSave survives valid JSON of the wrong shape', () => {
   const s = new FakeStorage();
-  s.setItem('catapult.save.v1', '{"hello":"world"}');
+  s.setItem('catapult.save.v2', '{"hello":"world"}');
   assert.deepEqual(loadSave(s), DEFAULT_SAVE);
 });
 
-test('loadSave falls back to defaults when storage throws', () => {
+test('loadSave survives a storage that throws', () => {
   assert.deepEqual(loadSave(new ThrowingStorage()), DEFAULT_SAVE);
 });
 
-test('writeSave reports failure instead of throwing when storage throws', () => {
+test('writeSave reports failure rather than throwing', () => {
   assert.equal(writeSave(DEFAULT_SAVE, new ThrowingStorage()), false);
-});
-
-test('writeSave reports success on a working storage', () => {
   assert.equal(writeSave(DEFAULT_SAVE, new FakeStorage()), true);
 });
 
-test('recordClear unlocks the next level', () => {
-  const save = recordClear(DEFAULT_SAVE, 1, 500, 5);
-  assert.equal(save.unlockedLevel, 2);
+test('recordRun keeps the higher score', () => {
+  let s = recordRun(DEFAULT_SAVE, 80, 10);
+  s = recordRun(s, 40, 10);
+  assert.equal(s.bestScore, 80);
+  assert.equal(s.totalCatsFired, 20);
 });
 
-test('recordClear does not unlock past the last level', () => {
-  const save = recordClear({ ...DEFAULT_SAVE, unlockedLevel: 5 }, 5, 500, 5);
-  assert.equal(save.unlockedLevel, 5);
+test('recordRun does not mutate the save passed in', () => {
+  recordRun(DEFAULT_SAVE, 80, 10);
+  assert.equal(DEFAULT_SAVE.bestScore, 0);
 });
 
-test('recordClear keeps the higher score', () => {
-  let save = recordClear(DEFAULT_SAVE, 1, 900, 5);
-  save = recordClear(save, 1, 400, 5);
-  assert.equal(save.bestScores['1'], 900);
+test('pointerToAim centres a pointer in the middle of the screen', () => {
+  const a = pointerToAim({ x: 500, y: 250 }, 1000, 500);
+  assert.equal(a.nx, 0);
+  assert.equal(a.ny, 0.5);
 });
 
-test('recordClear never lowers unlockedLevel when replaying an old level', () => {
-  const save = recordClear({ ...DEFAULT_SAVE, unlockedLevel: 4 }, 1, 100, 5);
-  assert.equal(save.unlockedLevel, 4);
+test('pointerToAim maps left of screen to negative heading', () => {
+  assert.ok(pointerToAim({ x: 0, y: 250 }, 1000, 500).nx < 0);
+  assert.ok(pointerToAim({ x: 1000, y: 250 }, 1000, 500).nx > 0);
 });
 
-test('recordClear does not mutate the save passed in', () => {
-  const before = { ...DEFAULT_SAVE, bestScores: {} };
-  recordClear(before, 1, 900, 5);
-  assert.deepEqual(before.bestScores, {});
+test('pointerToAim maps high on screen to high elevation', () => {
+  assert.ok(pointerToAim({ x: 500, y: 0 }, 1000, 500).ny > pointerToAim({ x: 500, y: 400 }, 1000, 500).ny);
 });
 
-test('recordShot increments the shot counter', () => {
-  assert.equal(recordShot(DEFAULT_SAVE).totalShots, 1);
+test('pointerToAim clamps a pointer dragged off screen', () => {
+  const a = pointerToAim({ x: -9999, y: 9999 }, 1000, 500);
+  assert.equal(a.nx, -1);
+  assert.equal(a.ny, 0);
+});
+
+test('pointerToAim without a pointer aims straight ahead', () => {
+  assert.deepEqual(pointerToAim(null, 1000, 500), { nx: 0, ny: 0.5 });
 });

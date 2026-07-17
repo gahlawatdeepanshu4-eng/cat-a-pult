@@ -1,17 +1,17 @@
 // Bump CACHE when any precached file changes, or clients keep the old copy.
-const CACHE = 'catapult-v1';
+const CACHE = 'catapult-v2';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './src/main.js',
   './src/constants.js',
-  './src/physics.js',
-  './src/camera.js',
+  './src/ballistics.js',
+  './src/project.js',
+  './src/arena.js',
+  './src/game.js',
   './src/render.js',
   './src/input.js',
-  './src/level.js',
-  './src/levels.js',
   './src/storage.js',
   './icons/icon-192.png',
   './icons/icon-512.png',

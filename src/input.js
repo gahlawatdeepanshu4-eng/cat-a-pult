@@ -1,71 +1,59 @@
-export const MAX_DRAG_FRACTION = 0.35;
-export const MIN_DRAG_PX = 8;
+// The pointer does two jobs at once: where it is sets the aim, and holding it
+// down charges the power. Matches the original's click-and-hold slingshot.
+export function createInput(canvas, { onPress, onRelease }) {
+  let pointer = null;
+  let held = false;
 
-const MIN_ANGLE = 0;
-const MAX_ANGLE = Math.PI / 2;
+  const toCanvas = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
 
-export const maxDragPx = (canvas) => canvas.clientHeight * MAX_DRAG_FRACTION;
-
-// Slingshot drag: pull back and away from where you want the cat to go, so
-// the launch direction is the opposite of the drag vector. Angle is clamped
-// to the up-and-right quadrant so the player cannot fire backwards or into
-// the dirt.
-//
-// Exported because the trajectory hint has to preview exactly the shot this
-// would fire. Two copies of this maths would drift apart and the hint would
-// start lying.
-export function shotFromDrag(dx, dy, maxPx) {
-  const dist = Math.hypot(dx, dy);
-  if (dist < MIN_DRAG_PX) return null;
-  // Screen y grows downward, world y grows upward, so dy is negated twice:
-  // once to invert the drag, once to flip into world space. They cancel.
-  const angle = Math.min(MAX_ANGLE, Math.max(MIN_ANGLE, Math.atan2(dy, -dx)));
-  const power = Math.min(dist / maxPx, 1);
-  return { angle, power };
-}
-
-export function createInput(canvas, { onLaunch, onTap }) {
-  let drag = null;
-
-  function onDown(e) {
-    drag = {
-      startX: e.clientX,
-      startY: e.clientY,
-      currentX: e.clientX,
-      currentY: e.clientY,
-    };
-    canvas.setPointerCapture(e.pointerId);
+  function down(e) {
+    pointer = toCanvas(e);
+    held = true;
+    canvas.setPointerCapture?.(e.pointerId);
+    onPress?.();
   }
 
-  function onMove(e) {
-    if (!drag) return;
-    drag.currentX = e.clientX;
-    drag.currentY = e.clientY;
+  function move(e) {
+    pointer = toCanvas(e);
   }
 
-  function onUp() {
-    if (!drag) return;
-    const dx = drag.currentX - drag.startX;
-    const dy = drag.currentY - drag.startY;
-    drag = null;
-
-    const shot = shotFromDrag(dx, dy, maxDragPx(canvas));
-    if (shot) onLaunch?.(shot);
-    else onTap?.(); // too short to be a shot, so treat it as a tap
+  function up() {
+    if (!held) return;
+    held = false;
+    onRelease?.();
   }
 
-  canvas.addEventListener('pointerdown', onDown);
-  canvas.addEventListener('pointermove', onMove);
-  canvas.addEventListener('pointerup', onUp);
-  canvas.addEventListener('pointercancel', onUp);
+  canvas.addEventListener('pointerdown', down);
+  canvas.addEventListener('pointermove', move);
+  canvas.addEventListener('pointerup', up);
+  canvas.addEventListener('pointercancel', up);
+  canvas.addEventListener('pointerleave', move);
 
   return {
-    getDrag: () => drag,
+    getPointer: () => pointer,
+    isHeld: () => held,
     destroy() {
-      canvas.removeEventListener('pointerdown', onDown);
-      canvas.removeEventListener('pointermove', onMove);
-      canvas.removeEventListener('pointerup', onUp);
-      canvas.removeEventListener('pointercancel', onUp);
+      canvas.removeEventListener('pointerdown', down);
+      canvas.removeEventListener('pointermove', move);
+      canvas.removeEventListener('pointerup', up);
+      canvas.removeEventListener('pointercancel', up);
+      canvas.removeEventListener('pointerleave', move);
     },
+  };
+}
+
+// Screen pixels to the -1..1 across / 0..1 up space the rules speak in.
+// Pure, so the aim the crosshair shows and the aim that fires are the same
+// calculation rather than two that can drift apart.
+export function pointerToAim(pointer, width, height) {
+  if (!pointer) return { nx: 0, ny: 0.5 };
+  const nx = (pointer.x / width) * 2 - 1;
+  const ny = 1 - pointer.y / height;
+  return {
+    nx: Math.min(1, Math.max(-1, nx)),
+    ny: Math.min(1, Math.max(0, ny)),
   };
 }

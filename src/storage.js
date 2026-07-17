@@ -1,28 +1,24 @@
-const KEY = 'catapult.save.v1';
+const KEY = 'catapult.save.v2';
 
 export const DEFAULT_SAVE = Object.freeze({
-  version: 1,
-  unlockedLevel: 1,
-  bestScores: {},
-  totalShots: 0,
+  version: 2,
+  bestScore: 0,
+  totalCatsFired: 0,
 });
 
 function defaults() {
-  return { ...DEFAULT_SAVE, bestScores: {} };
+  return { ...DEFAULT_SAVE };
 }
 
 export function isValidSave(obj) {
   return !!obj
     && typeof obj === 'object'
-    && obj.version === 1
-    && Number.isFinite(obj.unlockedLevel)
-    && !!obj.bestScores
-    && typeof obj.bestScores === 'object'
-    && !Array.isArray(obj.bestScores)
-    && Number.isFinite(obj.totalShots);
+    && obj.version === 2
+    && Number.isFinite(obj.bestScore)
+    && Number.isFinite(obj.totalCatsFired);
 }
 
-// A save failure must never interrupt play, so every path here degrades to
+// A save failure must never interrupt a shot, so every path degrades to
 // in-memory defaults rather than throwing.
 export function loadSave(storage = globalThis.localStorage) {
   try {
@@ -44,16 +40,10 @@ export function writeSave(save, storage = globalThis.localStorage) {
   }
 }
 
-export function recordClear(save, levelId, score, totalLevels) {
-  const key = String(levelId);
-  const best = Math.max(save.bestScores[key] ?? 0, score);
+export function recordRun(save, score, catsFired) {
   return {
     ...save,
-    unlockedLevel: Math.min(Math.max(save.unlockedLevel, levelId + 1), totalLevels),
-    bestScores: { ...save.bestScores, [key]: best },
+    bestScore: Math.max(save.bestScore, score),
+    totalCatsFired: save.totalCatsFired + catsFired,
   };
-}
-
-export function recordShot(save) {
-  return { ...save, totalShots: save.totalShots + 1 };
 }
