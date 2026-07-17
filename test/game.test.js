@@ -1,200 +1,160 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  createGame, aimFrom, beginCharge, tickCharge, release, tick,
-} from '../src/game.js';
-import { HOLES } from '../src/arena.js';
-import {
-  STARTING_CATS, POINTS_PER_HOLE, MAX_HEADING, MIN_ELEVATION, MAX_ELEVATION, WALL_Z,
-} from '../src/constants.js';
+import { createRun, fire, tick, aliveCount } from '../src/game.js';
+import { aimFromDrag } from '../src/aim.js';
+import { levelSpec } from '../src/levels.js';
+import { CAT_POINTS, TREX_POINTS, TOTAL_LEVELS, MAX_DRAG_FRACTION } from '../src/constants.js';
 
-const steadyRand = () => {
-  let seed = 1;
-  return () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
-};
+const H = 720;
+const seeded = (seed = 1) => () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
 
-// Fly a shot to its conclusion through the real rules.
-function shoot(game, aim, power) {
-  let g = beginCharge(game);
-  g = tickCharge(g, power * 1.1); // CHARGE_SECONDS
-  g = release(g, aim);
-  let guard = 0;
-  while (g.phase === 'flying' && guard++ < 100000) g = tick(g, 1 / 240);
+function flyToEnd(run, rand) {
+  let g = run;
+  let n = 0;
+  while (g.phase === 'flying' && n++ < 40000) g = tick(g, 1 / 120, rand);
   return g;
 }
 
-test('a new game starts aiming with a full pouch and no score', () => {
-  const g = createGame(steadyRand());
-  assert.equal(g.phase, 'aiming');
-  assert.equal(g.catsLeft, STARTING_CATS);
-  assert.equal(g.score, 0);
+test('a run starts aiming with the level rocks and nothing scored', () => {
+  const run = createRun(1, seeded());
+  assert.equal(run.phase, 'aiming');
+  assert.equal(run.rocksLeft, levelSpec(1).rocks);
+  assert.equal(run.score, 0);
+  assert.equal(aliveCount(run), levelSpec(1).targets);
 });
 
-test('aim maps the crosshair to heading and elevation', () => {
-  assert.equal(aimFrom(0, 0).heading, 0);
-  assert.ok(aimFrom(1, 0).heading > 0);
-  assert.ok(aimFrom(-1, 0).heading < 0);
+test('createRun refuses a level outside the range', () => {
+  assert.equal(createRun(0, seeded()), null);
+  assert.equal(createRun(TOTAL_LEVELS + 1, seeded()), null);
 });
 
-test('aim is clamped so the cat cannot be fired behind the player', () => {
-  assert.equal(aimFrom(50, 0).heading, MAX_HEADING);
-  assert.equal(aimFrom(-50, 0).heading, -MAX_HEADING);
+test('firing spends a rock and puts one in the air', () => {
+  const aim = aimFromDrag(0, H * MAX_DRAG_FRACTION * 0.6, H);
+  const run = fire(createRun(1, seeded()), aim);
+  assert.equal(run.phase, 'flying');
+  assert.equal(run.rocksLeft, levelSpec(1).rocks - 1);
+  assert.ok(run.rock);
 });
 
-test('elevation stays within its limits', () => {
-  assert.equal(aimFrom(0, -9).elevation, MIN_ELEVATION);
-  assert.equal(aimFrom(0, 9).elevation, MAX_ELEVATION);
+test('a cancelled drag does not fire or cost a rock', () => {
+  const run = createRun(1, seeded());
+  assert.equal(fire(run, null).rocksLeft, run.rocksLeft);
+  assert.equal(fire(run, null).phase, 'aiming');
 });
 
-test('charging only starts from aiming', () => {
-  const g = createGame(steadyRand());
-  assert.equal(beginCharge(g).phase, 'charging');
-  assert.equal(beginCharge(beginCharge(g)).phase, 'charging');
-});
-
-test('releasing spends a cat and starts the flight', () => {
-  let g = beginCharge(createGame(steadyRand()));
-  g = tickCharge(g, 0.5);
-  g = release(g, aimFrom(0, 0.5));
-  assert.equal(g.phase, 'flying');
-  assert.equal(g.catsLeft, STARTING_CATS - 1);
-  assert.ok(g.cat);
-});
-
-test('releasing without charging does nothing', () => {
-  const g = createGame(steadyRand());
-  assert.equal(release(g, aimFrom(0, 0.5)).catsLeft, STARTING_CATS);
+test('you cannot fire a second rock while one is in the air', () => {
+  const aim = aimFromDrag(0, H * MAX_DRAG_FRACTION * 0.6, H);
+  const flying = fire(createRun(1, seeded()), aim);
+  assert.equal(fire(flying, aim).rocksLeft, flying.rocksLeft);
 });
 
 test('a shot always terminates rather than flying forever', () => {
-  const g = shoot(createGame(steadyRand()), aimFrom(0, 0.5), 1);
+  const rand = seeded();
+  const g = flyToEnd(fire(createRun(1, rand), aimFromDrag(0, H * 0.2, H)), rand);
   assert.notEqual(g.phase, 'flying');
-  assert.ok(g.lastShot);
 });
 
-test('a shot that dribbles into the sand scores nothing', () => {
-  const g = shoot(createGame(steadyRand()), aimFrom(0, 0), 0);
-  assert.equal(g.lastShot.result, 'sand');
-  assert.equal(g.score, 0);
-});
+// Park a single, still creature dead ahead where a real drag is known to put
+// the rock, then take that shot. Uses the actual aim path rather than a
+// hand-made velocity, so it cannot pass while the real controls are broken.
+const STRAIGHT_DRAG = { dx: 0, dy: 60 }; // lands around z=595, dead centre
 
-test('hitting stone between the holes scores nothing', () => {
-  const g = createGame(steadyRand());
-  let found = null;
-  for (let ny = 0; ny <= 1 && !found; ny += 0.05) {
-    for (let p = 0; p <= 1 && !found; p += 0.05) {
-      const r = shoot(g, aimFrom(0, ny), p);
-      if (r.lastShot.result === 'wall') found = r;
-    }
-  }
-  assert.ok(found, 'expected some shot to hit stone');
-  assert.equal(found.score, 0);
-});
-
-// Guards the tuning. If someone changes gravity, speed, or the wall depth and
-// the aim space collapses, this fails loudly instead of quietly shipping a
-// game where power does not matter.
-test('the aim range is live: falling short and reaching the wall are both common', () => {
-  const g = createGame(steadyRand());
-  const tally = { hole: 0, wall: 0, sand: 0, wide: 0 };
-  let total = 0;
-  for (let nx = -1; nx <= 1.0001; nx += 0.2) {
-    for (let ny = 0; ny <= 1.0001; ny += 0.1) {
-      for (let p = 0; p <= 1.0001; p += 0.1) {
-        tally[shoot(g, aimFrom(nx, ny), p).lastShot.result]++;
-        total++;
-      }
-    }
-  }
-  const pct = (n) => (n / total) * 100;
-  assert.ok(pct(tally.sand) < 65, `too many shots fall short: ${pct(tally.sand).toFixed(1)}%`);
-  assert.ok(pct(tally.sand) > 10, `falling short should be a real risk: ${pct(tally.sand).toFixed(1)}%`);
-  assert.ok(pct(tally.hole) > 4, `scoring is too hard: ${pct(tally.hole).toFixed(1)}%`);
-});
-
-test('upper holes demand more power than lower ones, so the rows differ', () => {
-  const g = createGame(steadyRand());
-  const minPower = (row) => {
-    for (let p = 0; p <= 1.0001; p += 0.05) {
-      for (let nx = -1; nx <= 1.0001; nx += 0.1) {
-        for (let ny = 0; ny <= 1.0001; ny += 0.05) {
-          const r = shoot(g, aimFrom(nx, ny), p);
-          if (r.lastShot.result === 'hole'
-            && HOLES.find((h) => h.id === r.lastShot.holeId).row === row) return p;
-        }
-      }
-    }
-    return null;
+function killOne(kind) {
+  const rand = seeded();
+  const base = createRun(1, rand);
+  const target = {
+    ...base.creatures[0],
+    kind, flying: false, x: 0, y: 0, z: 560,
+    alive: true, speed: 0, dodgedThisShot: false,
   };
-  const lower = minPower('lower');
-  const upper = minPower('upper');
-  assert.ok(lower !== null && upper !== null, 'both rows must be reachable');
-  assert.ok(upper > lower, `upper (${upper}) should need more power than lower (${lower})`);
-});
-
-test('the run ends when the last cat is spent', () => {
-  let g = createGame(steadyRand());
-  for (let i = 0; i < STARTING_CATS; i++) g = shoot(g, aimFrom(0, 0.5), 0.5);
-  assert.equal(g.catsLeft, 0);
-  assert.equal(g.phase, 'over');
-});
-
-test('strays keep wandering while the cat is in the air', () => {
-  let g = beginCharge(createGame(steadyRand()));
-  g = tickCharge(g, 0.5);
-  g = release(g, aimFrom(0, 0.5));
-  const before = g.strays.map((s) => s.x);
-  g = tick(g, 0.5);
-  assert.notDeepEqual(g.strays.map((s) => s.x), before);
-});
-
-test('tick does not mutate the game passed in', () => {
-  let g = beginCharge(createGame(steadyRand()));
-  g = tickCharge(g, 0.5);
-  g = release(g, aimFrom(0, 0.5));
-  const z = g.cat.z;
-  tick(g, 1 / 60);
-  assert.equal(g.cat.z, z);
-});
-
-// The load-bearing test. Holes are hand-placed in 3D; one that no shot can
-// reach is a dead target, and nothing above would reveal it.
-//
-// A cat's x where it meets the wall is exactly tan(heading) * WALL_Z, so the
-// heading a hole needs is solvable rather than searchable. Only elevation and
-// power get swept, which keeps this fast and pins failures on the real cause.
-function canHit(holeId) {
-  const hole = HOLES.find((h) => h.id === holeId);
-  const nx = Math.atan(hole.x / WALL_Z) / MAX_HEADING;
-  if (Math.abs(nx) > 1) return null; // hole sits outside what heading can reach
-  const g = createGame(steadyRand());
-  for (let ny = 0; ny <= 1.0001; ny += 0.01) {
-    for (let p = 0; p <= 1.0001; p += 0.01) {
-      const r = shoot(g, aimFrom(nx, ny), p);
-      if (r.lastShot.result === 'hole' && r.lastShot.holeId === holeId) {
-        return { nx: +nx.toFixed(2), ny: +ny.toFixed(2), power: +p.toFixed(2) };
-      }
-    }
-  }
-  return null;
+  const run = {
+    ...base,
+    creatures: [target],
+    spec: { ...base.spec, dodgeChance: 0, canJump: false },
+    rocksLeft: 5,
+  };
+  const aim = aimFromDrag(STRAIGHT_DRAG.dx, STRAIGHT_DRAG.dy, H);
+  return flyToEnd(fire(run, aim), rand);
 }
 
-test('every hole sits within the heading limit, so none is geometrically stranded', () => {
-  for (const h of HOLES) {
-    const needed = Math.abs(Math.atan(h.x / WALL_Z));
-    assert.ok(needed <= MAX_HEADING,
-      `hole ${h.id} at x=${h.x} needs heading ${needed.toFixed(2)} but the limit is ${MAX_HEADING}`);
-  }
+test('a cat is worth 20 and a T-rex is worth 50', () => {
+  assert.equal(killOne('cat').score, CAT_POINTS);
+  assert.equal(killOne('trex').score, TREX_POINTS);
 });
 
-for (const hole of HOLES) {
-  test(`hole ${hole.id} (${hole.row}) can actually be hit`, () => {
-    assert.ok(canHit(hole.id), `no aim and power combination reaches hole ${hole.id}`);
+test('killing the last creature clears the level', () => {
+  assert.equal(killOne('cat').phase, 'cleared');
+  assert.equal(aliveCount(killOne('cat')), 0);
+});
+
+test('running out of rocks with creatures alive fails the level', () => {
+  const rand = seeded();
+  let run = createRun(1, rand);
+  run = { ...run, rocksLeft: 1 };
+  run = fire(run, aimFromDrag(0, 20, H)); // a weak shot that will miss
+  run = flyToEnd(run, rand);
+  assert.equal(run.phase, 'failed');
+  assert.ok(aliveCount(run) > 0);
+});
+
+test('a hit is reported so the game can show the points', () => {
+  const g = killOne('trex');
+  assert.equal(g.lastHit.kind, 'trex');
+  assert.equal(g.lastHit.points, TREX_POINTS);
+});
+
+test('creatures keep moving while a rock is in the air', () => {
+  const rand = seeded();
+  let run = fire(createRun(5, rand), aimFromDrag(0, H * 0.2, H));
+  const before = run.creatures.map((c) => c.x);
+  run = tick(run, 0.3, rand);
+  assert.notDeepEqual(run.creatures.map((c) => c.x), before);
+});
+
+test('tick does not mutate the run passed in', () => {
+  const rand = seeded();
+  const run = fire(createRun(1, rand), aimFromDrag(0, H * 0.2, H));
+  const z = run.rock.z;
+  tick(run, 1 / 60, rand);
+  assert.equal(run.rock.z, z);
+});
+
+// The load-bearing test. Dodging, jumping and flying stack as levels rise; a
+// level where some creature can never be hit is unwinnable and nothing above
+// would reveal it.
+function canKillEvery(levelNumber) {
+  const rand = seeded(levelNumber * 7 + 3);
+  const base = createRun(levelNumber, rand);
+  const unreachable = [];
+
+  for (const creature of base.creatures) {
+    let killed = false;
+    // Dodging is disabled here on purpose: this asks whether the geometry
+    // allows a hit at all, not whether you get lucky against a dodge roll.
+    const solo = {
+      ...base,
+      creatures: [{ ...creature, dodgedThisShot: false }],
+      spec: { ...base.spec, dodgeChance: 0, canJump: false },
+    };
+    // Fine enough that the step between neighbouring shots is smaller than a
+    // creature. A coarse sweep steps straight over targets and reports a
+    // reachable creature as unreachable.
+    for (let dx = -240; dx <= 240 && !killed; dx += 4) {
+      for (let dy = 8; dy <= 240 && !killed; dy += 3) {
+        const aim = aimFromDrag(dx, dy, H);
+        if (!aim) continue;
+        const g = flyToEnd(fire({ ...solo, rocksLeft: 9 }, aim), () => 0.99);
+        if (aliveCount(g) === 0) killed = true;
+      }
+    }
+    if (!killed) unreachable.push(`${creature.kind}${creature.flying ? ' (flying)' : ''} at x=${Math.round(creature.x)} y=${Math.round(creature.y)} z=${Math.round(creature.z)}`);
+  }
+  return unreachable;
+}
+
+for (let n = 1; n <= TOTAL_LEVELS; n++) {
+  test(`level ${n}: every creature can actually be hit`, () => {
+    const unreachable = canKillEvery(n);
+    assert.deepEqual(unreachable, [], `level ${n} has unhittable creatures: ${unreachable.join('; ')}`);
   });
 }
-
-test('a cat through a hole scores exactly the hole value', () => {
-  const shot = canHit('l2');
-  const g = shoot(createGame(steadyRand()), aimFrom(shot.nx, shot.ny), shot.power);
-  assert.equal(g.score, POINTS_PER_HOLE);
-});

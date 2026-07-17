@@ -33,27 +33,33 @@ is no binary asset that cannot be rebuilt from source.
 
 ## How it fits together
 
-- `src/physics.js` — pure projectile maths. No canvas, no DOM.
-- `src/level.js` — the rules. Returns new state, never mutates.
-- `src/levels.js` — the five levels, as plain data. Add a sixth by appending.
-- `src/input.js` — turns a drag into `{angle, power}`. `shotFromDrag` is pure.
-- `src/render.js` — all drawing. Reads state, never writes it.
-- `src/main.js` — the loop and the screen wiring.
+-  — drag vector to {heading, elevation, power}. Pure. The ghost
+  arc and the real shot both call it, so the preview cannot lie.
+-  — pure 3D projectile maths. No canvas, no DOM.
+-  — the perspective projection. The only module that knows
+  how world space becomes screen space.
+-  — cats and T-rexes: wander, jump, fly, dodge, hit tests.
+-  — the 20-level curve, as a formula rather than 20 blobs.
+-  — the rules. Returns new state, never mutates.
+-  — all drawing. Reads state, never writes it.
+-  — the loop and screen wiring.
 
-World space is y-up with the ground at y=0. `render.js` is the only place that
-converts to canvas coordinates.
+World space is y-up with the sand at y=0 and z running into the screen.
 
-Tuning lives in `src/constants.js`. `GRAVITY` controls how heavy the arc feels,
-`MAX_LAUNCH_SPEED` how far a full-power shot reaches, and `MAX_DRAG_FRACTION`
-in `input.js` how much finger travel a full-power drag needs.
+**The arena is a wedge, not a box.** A rock's horizontal reach at depth z is
+exactly , so the aim cone is narrow close up and wide
+far away. Creatures must spawn, wander and dodge inside that cone or they
+become visible but impossible to hit.  enforces it.
+
+Tuning lives in .
 
 ## Rules
 
-Landing the cat in the target zone clears the level. That is the only win
-condition. Score is a rating, not a gate: it never unlocks anything, it just
-records how well you did.
+Pull back and let go, like a slingshot. Drag direction aims, drag length sets
+power, and there is no timer.
 
-Score = accuracy (up to 1000, at the zone's exact centre) + 500 if you hit the
-mouse + 250 per unused shot.
+Cat 20 points, T-rex 50. Clear every creature before the rocks run out.
+Running out just restarts the level: no lives, no game over.
 
-Running out of shots resets the level. There are no lives and no game over.
+Twenty levels. Dodging ramps up from level 1, jumping starts at level 2, and
+from level 4 there are two flying cats and two flying T-rexes every level.

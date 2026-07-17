@@ -1,59 +1,48 @@
-// The pointer does two jobs at once: where it is sets the aim, and holding it
-// down charges the power. Matches the original's click-and-hold slingshot.
-export function createInput(canvas, { onPress, onRelease }) {
-  let pointer = null;
-  let held = false;
+// Captures the drag only. All the maths lives in aim.js so the ghost arc and
+// the real shot cannot disagree.
+export function createInput(canvas, { onRelease }) {
+  let drag = null;
 
-  const toCanvas = (e) => {
+  const at = (e) => {
     const r = canvas.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
 
   function down(e) {
-    pointer = toCanvas(e);
-    held = true;
+    const p = at(e);
+    drag = { startX: p.x, startY: p.y, x: p.x, y: p.y };
     canvas.setPointerCapture?.(e.pointerId);
-    onPress?.();
   }
 
   function move(e) {
-    pointer = toCanvas(e);
+    if (!drag) return;
+    const p = at(e);
+    drag.x = p.x;
+    drag.y = p.y;
   }
 
   function up() {
-    if (!held) return;
-    held = false;
-    onRelease?.();
+    if (!drag) return;
+    const finished = drag;
+    drag = null;
+    onRelease?.({
+      dx: finished.x - finished.startX,
+      dy: finished.y - finished.startY,
+    });
   }
 
   canvas.addEventListener('pointerdown', down);
   canvas.addEventListener('pointermove', move);
   canvas.addEventListener('pointerup', up);
   canvas.addEventListener('pointercancel', up);
-  canvas.addEventListener('pointerleave', move);
 
   return {
-    getPointer: () => pointer,
-    isHeld: () => held,
+    getDrag: () => drag,
     destroy() {
       canvas.removeEventListener('pointerdown', down);
       canvas.removeEventListener('pointermove', move);
       canvas.removeEventListener('pointerup', up);
       canvas.removeEventListener('pointercancel', up);
-      canvas.removeEventListener('pointerleave', move);
     },
-  };
-}
-
-// Screen pixels to the -1..1 across / 0..1 up space the rules speak in.
-// Pure, so the aim the crosshair shows and the aim that fires are the same
-// calculation rather than two that can drift apart.
-export function pointerToAim(pointer, width, height) {
-  if (!pointer) return { nx: 0, ny: 0.5 };
-  const nx = (pointer.x / width) * 2 - 1;
-  const ny = 1 - pointer.y / height;
-  return {
-    nx: Math.min(1, Math.max(-1, nx)),
-    ny: Math.min(1, Math.max(0, ny)),
   };
 }

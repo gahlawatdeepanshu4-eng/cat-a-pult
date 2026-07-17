@@ -1,188 +1,147 @@
 # Cat-a-pult — Design
 
-**Date:** 2026-07-17 (rewritten after reference footage arrived)
-**Status:** Approved in outline, superseded v1's side-on design
+**Date:** 2026-07-17 (third pass)
+**Status:** Current
 
-## What happened to v1
+## History, and why it matters
 
-The first version of this spec described a side-on, Angry-Birds-style
-trajectory game: camera scrolling left to right, drag-to-launch, land the cat
-in a target zone on the ground. That was designed from a one-line verbal
-description and it was wrong. Reference footage of the original game showed a
-completely different shape of game. v1 is abandoned, not patched — the
-difference is in the foundation, not the details.
+Two earlier designs were wrong and are abandoned:
 
-The v1 code remains in git history. Nothing below reuses its physics, camera,
-levels, or rendering.
+1. **Side-on trajectory game.** Designed from a one-line verbal description.
+   Angry-Birds-style scrolling camera, land the cat in a ground zone. Nothing
+   like the real game.
+2. **Fixed-view, cats-through-holes.** Designed from reference footage. Right
+   shape, but two fatal aiming flaws (below) and it was not the game wanted.
+
+The lesson recorded here so it is not repeated: this version's aiming is the
+one thing that must be verified by playing before anything is built on top.
+
+### The bugs that killed v2
+
+- **A tap did nothing.** Power charged over 1.1s while held. Any tap under
+  ~0.3s left the rock so slow it fell in the sand. Measured: 0.05s hold
+  reached z=336 of the 800 needed.
+- **You could not aim before committing.** `pointermove` only fires while the
+  finger is already down, so touching the screen started the power charge
+  immediately. Aim and power were welded to the same gesture and the same
+  clock — taking time to aim forced power to full.
+
+Drag-to-aim fixes both: one gesture carries direction *and* power, with no
+clock running.
 
 ## Summary
 
-A single-player game. You stand behind a slingshot facing an arena wall
-pierced with holes. A cat sits in the sling. Aim with a crosshair, hold to
-charge power, release to fling the cat into the screen at the wall. Get it
-through a hole to score. You have a limited number of cats.
+A fixed forward view of an arena. Cats and mini T-rexes roam the sand in front
+of a stone wall. You pull back a slingshot and fling a rock at them. Hit a cat
+for 20, a T-rex for 50. Twenty levels; each one the creatures get better at
+dodging, and later they jump and fly.
 
-## Reference
+## Controls
 
-Rebuilt from footage of the original Flash game. Observed directly in the
-frames:
+**Drag to aim, Angry Birds style.** Press anywhere, drag *back* from the
+direction you want to fire, release to loose the rock.
 
-- Fixed, forward-facing view. The camera never moves.
-- An arena wall across the back with **7 holes**: 3 round holes on an upper
-  row, 4 arched holes on a lower row.
-- A Y-shaped slingshot at bottom-centre with a cat loaded in the pouch.
-- A crosshair reticle that moves with the pointer.
-- A vertical **power meter** on the left, filling green → orange → red while
-  charging.
-- A cat-icon **ammo counter** top-right, counting down (10 → 9 → 8 → 7).
-- A **score** readout, rising in steps of **20**.
-- Cats wandering loose on the arena floor between the player and the wall.
+- **Drag direction** sets aim. Pulling back-and-down fires forward-and-up.
+  Horizontal drag sets heading (left/right), vertical drag sets elevation.
+- **Drag length** sets power, clamped at full.
+- **No timer.** Take as long as you like. Releasing under a minimum drag
+  cancels rather than firing a dud.
+- While dragging, a **ghost arc** previews the shot.
 
-## Goals
+## World
 
-- Reproduce the feel of the original: aim, charge, fling, watch it recede.
-- Runs on an Android phone, installable, offline.
+Same pseudo-3D as before, which worked and is kept:
 
-## Non-goals
+- **x** left/right, 0 at centre; **y** up, 0 at sand; **z** depth into screen.
+- Gravity acts on y only.
+- Pinhole projection: `scale = FOCAL / (z + FOCAL)`. Distant things shrink.
+  `project.js` is the only module that knows this.
+- The wall stands at `WALL_Z` as a **backdrop**. Its holes are decoration and
+  score nothing. A rock reaching the wall is a miss.
 
-- Multiplayer, accounts, leaderboards, backend.
-- iOS support. Chrome on Android only.
-- Audio in v1.
-- Blood and gore. The original has heavy blood splatter; this version leaves
-  it out unless asked for.
-- Real 3D. A pseudo-3D projection is enough and much simpler.
+## Creatures
 
-## Platform
+| Kind | Points | Size |
+|---|---|---|
+| Cat | 20 | small |
+| Mini T-rex | 50 | larger, slower |
 
-- **Orientation:** landscape, locked. The reference footage is a landscape
-  game letterboxed inside a portrait phone recording, so landscape stands.
-- **Stack:** HTML5 Canvas, vanilla JS, no framework, no build step, no deps.
-- **Distribution:** static files, installable PWA.
+Each creature wanders left and right along the sand at its own speed, turning
+at the arena edge.
 
-## Core gameplay loop
+**Dodging.** While a rock is in flight, a creature that is threatened (the
+rock will pass near it) rolls once against the level's `dodgeChance`. On a
+success it leaps sideways, away from the rock's path. One dodge attempt per
+creature per shot: it cannot dodge forever.
 
-A cat sits in the slingshot at bottom-centre. The player's pointer drives a
-**crosshair**, which sets aim: horizontal position sets left/right direction,
-vertical position sets elevation. **Press and hold** to charge the power
-meter; **release** to fire.
+**Jumping** (level 2+). Idle creatures hop on their own, on a per-creature
+timer. A jumping creature is harder to hit low and easier to hit high.
 
-The cat flies *into the screen*, away from the camera, under gravity. As it
-recedes it is drawn smaller. When it reaches the wall's depth one of three
-things happens:
+**Flying** (level 4+). Two flying cats and two flying T-rexes per level.
+They hold an altitude and drift, so they need elevation rather than a flat
+shot.
 
-- It passes through a **hole** → score **+20**, cat is gone.
-- It hits the **wall** → no score, cat drops.
-- It falls short and lands on the sand before reaching the wall → no score.
+## Levels
 
-Either way the shot ends, ammo decrements, and the next cat loads.
+Twenty levels, generated from the level number rather than hand-written, so
+the curve is a formula that can be tuned in one place:
 
-**Run ends** when ammo reaches zero. Final score is shown; the player can
-restart.
+- `dodgeChance` climbs from 0 at level 1 toward a cap. Never 1: a target that
+  always dodges is unhittable.
+- `canJump` from level 2.
+- T-rexes appear from level 2, increasing with level.
+- Flying creatures from level 4: 2 flying cats and 2 flying T-rexes.
+- Rocks per level are finite.
 
-Ammo starts at **10 cats**. There are no levels and no lives — one continuous
-run against a score, matching the reference.
+**Clear** a level by hitting every creature before the rocks run out.
+**Fail** and the level restarts with a fresh set of rocks. No lives, no game
+over. Clearing unlocks the next level; progress persists.
 
-## Coordinate system
-
-World space is 3D and right-handed from the player's point of view:
-
-- **x** — left/right, 0 at the arena centre, positive right.
-- **y** — up/down, 0 at the sand, positive up.
-- **z** — depth, 0 at the slingshot, positive **into the screen** toward the
-  wall. The wall stands at `WALL_Z`.
-
-Gravity acts on **y** only.
-
-### Projection
-
-A pinhole projection turns world space into screen space:
-
-```
-scale   = FOCAL / (z + FOCAL)
-screenX = centreX + x * scale * unit
-screenY = horizonY - (y - EYE_Y) * scale * unit
-```
-
-Objects further away (larger z) get a smaller `scale`, so they shrink and
-drift toward the horizon. This is the whole 3D illusion. `render.js` is the
-only module that knows about it.
+Every level must be **provably clearable**: enough rocks to kill every
+creature, and every creature reachable. This is a test, not a hope.
 
 ## Modules
 
 | Module | Responsibility |
 |---|---|
-| `constants.js` | Tuning values and arena geometry |
-| `ballistics.js` | Pure 3D projectile maths. No canvas, no DOM |
-| `project.js` | Pure world→screen projection maths |
-| `arena.js` | Hole layout, hole/wall hit tests, wandering-cat motion |
-| `game.js` | The rules: aim, charge, fire, resolve, ammo, score |
-| `input.js` | Pointer → crosshair position, press/release for charge |
-| `render.js` | All drawing. Reads state, never writes it |
-| `storage.js` | High score in localStorage, with safe fallback |
+| `constants.js` | Tuning and arena geometry |
+| `ballistics.js` | Pure 3D projectile maths |
+| `project.js` | Pure world→screen projection |
+| `aim.js` | Pure: drag vector → `{heading, elevation, power}` |
+| `creatures.js` | Spawn, wander, jump, fly, dodge, hit tests |
+| `levels.js` | The 20-level curve, as data derived from a formula |
+| `game.js` | Rules: fire, resolve, score, clear/fail |
+| `input.js` | Pointer drag capture only |
+| `render.js` | All drawing. Reads state, never writes |
+| `storage.js` | Progress and best score |
 | `main.js` | Boot, loop, wiring |
 
-`ballistics.js`, `project.js`, `arena.js`, and `game.js` are pure and unit
-tested in Node with no browser.
-
-## Aiming and power
-
-- **Crosshair x** maps to a launch heading (angle away from straight ahead),
-  clamped so the cat cannot be fired behind the player.
-- **Crosshair y** maps to elevation. The upper row of holes needs more
-  elevation than the lower row.
-- **Power** charges while held, on a loop that fills over `CHARGE_SECONDS`
-  and clamps at full rather than resetting. Power scales launch speed.
-
-Hitting an upper hole should require noticeably more power or elevation than
-a lower one, so the two rows are meaningfully different targets.
-
-## Scoring
-
-**+20 per cat through a hole.** That is the only way to score, matching the
-observed +20 steps in the footage.
-
-Assumption flagged during design: the cats wandering the arena floor are
-scenery, not targets. If they turn out to be scoreable, that is an additive
-change to `arena.js` and `game.js`.
-
-Best score persists in `localStorage`.
-
-## Data and persistence
-
-One `localStorage` key holding `{version, bestScore, totalCatsFired}`.
-Every read and write is wrapped; a blocked or full storage degrades to
-in-memory play. A corrupt entry falls back to defaults. A save failure must
-never interrupt a shot.
-
-## Error handling
-
-- The main loop wraps each frame in try/catch.
-- `dt` is clamped so a backgrounded tab cannot teleport the cat through the
-  wall on resume.
-- A shot always terminates: it either reaches the wall plane, lands on the
-  sand, or leaves the arena bounds.
+`aim.js` is split out from `input.js` precisely so the ghost arc and the real
+shot share one calculation and cannot drift apart.
 
 ## Testing
 
 Unit tested in Node, no browser:
 
-- Ballistics: trajectory, apex, no mutation of inputs.
-- Projection: distant things are smaller; a point at the wall projects inside
-  its hole.
-- Arena: hole hit/miss including exact edges, wandering-cat motion staying in
-  bounds.
-- Game rules: charge clamping, ammo decrement, score only on hole, run ends
-  at zero ammo.
+- Aim: drag back-and-down fires forward-and-up; power scales with drag length;
+  a tiny drag cancels; aim clamps so you cannot fire behind yourself.
+- Ballistics: trajectory, no mutation.
+- Creatures: wander stays in bounds, dodge fires at most once per shot, a
+  dodge chance of 0 never dodges and 1 always does, hit tests at the edges.
+- Levels: 20 of them, the difficulty curve is monotonic, dodge never reaches
+  1, flying only from level 4, T-rexes only from level 2.
+- Game: score by kind, ammo decrement, clear on last creature, fail at zero
+  rocks.
+- **Playability, per level:** enough rocks to clear it, and every creature
+  hittable by some drag.
 - Storage: validation, corrupt data, throwing storage.
 
-Reachability, proven by test rather than by eye: **every hole must be
-hittable** by some (aim, power) combination, and the upper row must require
-more than the lower row. A hole that no shot can reach is a dead target and
-no unit test on the pieces would reveal it.
+Feel is verified by playing. Nothing gets built on top of the aiming until it
+is confirmed.
 
-Rendering and feel are verified by playing.
+## Non-goals
 
-## Open items
-
-- Exact tuning (gravity, focal length, wall depth, charge rate, speed range)
-  by feel during implementation.
+- Blood and gore.
+- Audio.
+- Backend, accounts, leaderboards.
+- iOS-specific workarounds.

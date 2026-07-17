@@ -15,8 +15,7 @@ test('depth scale never goes negative or blows up behind the camera', () => {
 });
 
 test('a point dead centre projects to the middle of the screen', () => {
-  const p = project({ x: 0, y: 250, z: 0 }, view);
-  assert.equal(Math.round(p.x), Math.round(view.width / 2));
+  assert.equal(Math.round(project({ x: 0, y: 250, z: 0 }, view).x), Math.round(view.width / 2));
 });
 
 test('positive x projects right of centre, negative x left', () => {
@@ -31,15 +30,14 @@ test('higher y projects further up the screen', () => {
 });
 
 test('the same offset shrinks toward the horizon as it recedes', () => {
+  const centre = view.width / 2;
   const near = project({ x: 300, y: 0, z: 100 }, view);
   const far = project({ x: 300, y: 0, z: 1400 }, view);
-  const centre = view.width / 2;
   assert.ok(Math.abs(far.x - centre) < Math.abs(near.x - centre));
 });
 
 test('project reports the scale it used, so callers can size sprites', () => {
-  const p = project({ x: 0, y: 0, z: 500 }, view);
-  assert.equal(p.scale, depthScale(500));
+  assert.equal(project({ x: 0, y: 0, z: 500 }, view).scale, depthScale(500));
 });
 
 test('project does not mutate the point', () => {

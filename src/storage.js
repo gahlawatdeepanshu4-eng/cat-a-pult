@@ -1,21 +1,25 @@
-const KEY = 'catapult.save.v2';
+import { TOTAL_LEVELS } from './constants.js';
+
+const KEY = 'catapult.save.v3';
 
 export const DEFAULT_SAVE = Object.freeze({
-  version: 2,
-  bestScore: 0,
-  totalCatsFired: 0,
+  version: 3,
+  unlockedLevel: 1,
+  bestScores: {},
 });
 
 function defaults() {
-  return { ...DEFAULT_SAVE };
+  return { ...DEFAULT_SAVE, bestScores: {} };
 }
 
 export function isValidSave(obj) {
   return !!obj
     && typeof obj === 'object'
-    && obj.version === 2
-    && Number.isFinite(obj.bestScore)
-    && Number.isFinite(obj.totalCatsFired);
+    && obj.version === 3
+    && Number.isFinite(obj.unlockedLevel)
+    && !!obj.bestScores
+    && typeof obj.bestScores === 'object'
+    && !Array.isArray(obj.bestScores);
 }
 
 // A save failure must never interrupt a shot, so every path degrades to
@@ -40,10 +44,11 @@ export function writeSave(save, storage = globalThis.localStorage) {
   }
 }
 
-export function recordRun(save, score, catsFired) {
+export function recordClear(save, level, score) {
+  const key = String(level);
   return {
     ...save,
-    bestScore: Math.max(save.bestScore, score),
-    totalCatsFired: save.totalCatsFired + catsFired,
+    unlockedLevel: Math.min(Math.max(save.unlockedLevel, level + 1), TOTAL_LEVELS),
+    bestScores: { ...save.bestScores, [key]: Math.max(save.bestScores[key] ?? 0, score) },
   };
 }

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { launchVelocity, stepBody, clampDt, chargeToPower } from '../src/ballistics.js';
-import { MAX_DT, MIN_LAUNCH_SPEED, MAX_LAUNCH_SPEED, CHARGE_SECONDS } from '../src/constants.js';
+import { launchVelocity, stepBody, clampDt } from '../src/ballistics.js';
+import { MAX_DT, MIN_LAUNCH_SPEED, MAX_LAUNCH_SPEED } from '../src/constants.js';
 
 test('a straight-ahead level shot travels only in z', () => {
   const v = launchVelocity(0, 0, 1);
@@ -67,17 +67,4 @@ test('stepBody does not mutate its input', () => {
 
 test('clampDt caps a resumed backgrounded tab', () => {
   assert.equal(clampDt(9), MAX_DT);
-});
-
-test('chargeToPower ramps from empty to full over the charge time', () => {
-  assert.equal(chargeToPower(0), 0);
-  assert.equal(chargeToPower(CHARGE_SECONDS), 1);
-});
-
-test('chargeToPower clamps at full instead of wrapping around', () => {
-  assert.equal(chargeToPower(CHARGE_SECONDS * 10), 1);
-});
-
-test('chargeToPower is monotonic while charging', () => {
-  assert.ok(chargeToPower(0.2) < chargeToPower(0.6));
 });

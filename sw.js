@@ -1,5 +1,5 @@
-// Bump CACHE when any precached file changes, or clients keep the old copy.
-const CACHE = 'catapult-v2';
+// Bump CACHE when any precached file changes.
+const CACHE = 'catapult-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -8,7 +8,9 @@ const ASSETS = [
   './src/constants.js',
   './src/ballistics.js',
   './src/project.js',
-  './src/arena.js',
+  './src/aim.js',
+  './src/creatures.js',
+  './src/levels.js',
   './src/game.js',
   './src/render.js',
   './src/input.js',
@@ -29,9 +31,22 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+// Network first, cache as fallback.
+//
+// Cache-first is the usual advice and it is wrong for this game: it pins the
+// player to whatever build they first loaded, so fixes never arrive and the
+// old broken version keeps running no matter how many times they reload.
+// Going to the network first costs nothing when online and still leaves the
+// cache to serve the whole game offline.
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
-    caches.match(e.request).then((hit) => hit || fetch(e.request))
+    fetch(e.request)
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+        return res;
+      })
+      .catch(() => caches.match(e.request).then((hit) => hit || caches.match('./index.html')))
   );
 });

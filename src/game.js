@@ -1,80 +1,84 @@
-import { launchVelocity, stepBody, chargeToPower } from './ballistics.js';
-import { holeAt, isPastWall, isOutOfArena, createStrays, moveStrays } from './arena.js';
-import {
-  SLING_Y, WALL_Z, GROUND_Y, POINTS_PER_HOLE, STARTING_CATS,
-  MAX_HEADING, MIN_ELEVATION, MAX_ELEVATION,
-} from './constants.js';
+import { launchVelocity, stepBody } from './ballistics.js';
+import { spawn, stepAll, tryDodge, resetDodges, firstHit, pointsOf } from './creatures.js';
+import { levelSpec } from './levels.js';
+import { GROUND_Y, SLING_Y, WALL_Z, ARENA_HALF_WIDTH } from './constants.js';
 
-// phase: 'aiming' -> 'charging' -> 'flying' -> 'aiming' | 'over'
-export function createGame(rand = Math.random) {
+// phase: 'aiming' -> 'flying' -> 'aiming' | 'cleared' | 'failed'
+export function createRun(levelNumber, rand = Math.random) {
+  const spec = levelSpec(levelNumber);
+  if (!spec) return null;
+
+  const creatures = [
+    ...Array.from({ length: spec.groundCats }, () => spawn('cat', { flying: false }, rand)),
+    ...Array.from({ length: spec.groundTrexes }, () => spawn('trex', { flying: false }, rand)),
+    ...Array.from({ length: spec.flyingCats }, () => spawn('cat', { flying: true }, rand)),
+    ...Array.from({ length: spec.flyingTrexes }, () => spawn('trex', { flying: true }, rand)),
+  ];
+
   return {
+    spec,
     phase: 'aiming',
-    catsLeft: STARTING_CATS,
+    rocksLeft: spec.rocks,
     score: 0,
-    charge: 0,
-    cat: null,
-    strays: createStrays(6, rand),
-    lastShot: null, // { result: 'hole' | 'wall' | 'sand' | 'wide', holeId }
+    rock: null,
+    creatures,
+    lastHit: null,
   };
 }
 
-// The crosshair drives aim. Its position is normalised to -1..1 across and
-// 0..1 up the screen so the rules never need to know about pixels.
-export function aimFrom(nx, ny) {
-  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+export function fire(run, aim, rand = Math.random) {
+  if (run.phase !== 'aiming' || !aim) return run;
+  const v = launchVelocity(aim.heading, aim.elevation, aim.power);
   return {
-    heading: clamp(nx, -1, 1) * MAX_HEADING,
-    elevation: MIN_ELEVATION + clamp(ny, 0, 1) * (MAX_ELEVATION - MIN_ELEVATION),
-  };
-}
-
-export function beginCharge(game) {
-  if (game.phase !== 'aiming') return game;
-  return { ...game, phase: 'charging', charge: 0 };
-}
-
-export function tickCharge(game, dt) {
-  if (game.phase !== 'charging') return game;
-  return { ...game, charge: game.charge + dt };
-}
-
-export function release(game, aim) {
-  if (game.phase !== 'charging') return game;
-  const v = launchVelocity(aim.heading, aim.elevation, chargeToPower(game.charge));
-  return {
-    ...game,
+    ...run,
     phase: 'flying',
-    charge: 0,
-    catsLeft: game.catsLeft - 1,
-    cat: { x: 0, y: SLING_Y, z: 0, ...v },
+    rocksLeft: run.rocksLeft - 1,
+    rock: { x: 0, y: SLING_Y, z: 0, ...v },
+    creatures: resetDodges(run.creatures),
+    lastHit: null,
   };
 }
 
-export function tick(game, dt) {
-  const strays = moveStrays(game.strays, dt);
-  if (game.phase !== 'flying') return { ...game, strays };
+export function aliveCount(run) {
+  return run.creatures.filter((c) => c.alive).length;
+}
 
-  const cat = stepBody(game.cat, dt);
+export function tick(run, dt, rand = Math.random) {
+  const opts = { canJump: run.spec.canJump, rand };
 
-  // Check the wall plane before the ground: a cat that crosses the wall's
-  // depth on the same frame it dips below the sand still went through.
-  if (isPastWall(cat.z)) {
-    const hole = holeAt(cat.x, cat.y);
-    return resolve({ ...game, cat, strays }, hole ? 'hole' : 'wall', hole?.id);
+  if (run.phase !== 'flying') {
+    return { ...run, creatures: stepAll(run.creatures, dt, opts) };
   }
-  if (cat.y <= GROUND_Y) return resolve({ ...game, cat, strays }, 'sand');
-  if (isOutOfArena(cat.x)) return resolve({ ...game, cat, strays }, 'wide');
 
-  return { ...game, cat, strays };
+  const rock = stepBody(run.rock, dt);
+
+  // Dodge before the hit test, so a successful dodge actually saves them.
+  const dodged = run.creatures.map((c) => tryDodge(c, rock, run.spec.dodgeChance, rand));
+  const creatures = stepAll(dodged, dt, opts);
+
+  const struck = firstHit(rock, creatures);
+  if (struck) {
+    const after = creatures.map((c) => (c.id === struck.id ? { ...c, alive: false } : c));
+    return settle({
+      ...run,
+      rock: null,
+      creatures: after,
+      score: run.score + pointsOf(struck),
+      lastHit: { kind: struck.kind, points: pointsOf(struck), x: struck.x, y: struck.y, z: struck.z },
+    });
+  }
+
+  const missed = rock.y <= GROUND_Y
+    || rock.z >= WALL_Z
+    || Math.abs(rock.x) > ARENA_HALF_WIDTH;
+
+  if (missed) return settle({ ...run, rock: null, creatures });
+
+  return { ...run, rock, creatures };
 }
 
-function resolve(game, result, holeId = null) {
-  const scored = result === 'hole';
-  return {
-    ...game,
-    phase: game.catsLeft <= 0 ? 'over' : 'aiming',
-    score: game.score + (scored ? POINTS_PER_HOLE : 0),
-    cat: null,
-    lastShot: { result, holeId },
-  };
+function settle(run) {
+  if (run.creatures.every((c) => !c.alive)) return { ...run, phase: 'cleared' };
+  if (run.rocksLeft <= 0) return { ...run, phase: 'failed' };
+  return { ...run, phase: 'aiming' };
 }

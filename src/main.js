@@ -1,37 +1,58 @@
-import { clampDt, chargeToPower } from './ballistics.js';
+import { clampDt, launchVelocity, stepBody } from './ballistics.js';
 import { makeView } from './project.js';
 import { drawScene } from './render.js';
-import { createInput, pointerToAim } from './input.js';
-import { createGame, aimFrom, beginCharge, tickCharge, release, tick } from './game.js';
-import { loadSave, writeSave, recordRun } from './storage.js';
-import { STARTING_CATS } from './constants.js';
+import { createInput } from './input.js';
+import { aimFromDrag } from './aim.js';
+import { createRun, fire, tick, aliveCount } from './game.js';
+import { loadSave, writeSave, recordClear } from './storage.js';
+import { SLING_Y, GROUND_Y, TOTAL_LEVELS } from './constants.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
 let save = loadSave();
-let game = createGame();
-let screen = 'menu'; // 'menu' | 'play' | 'over'
+let level = save.unlockedLevel;
+let run = createRun(level);
+let screen = 'menu'; // 'menu' | 'play' | 'cleared' | 'failed' | 'done'
+let pop = null;
 
-function currentAim() {
-  const p = input.getPointer();
-  const { nx, ny } = pointerToAim(p, canvas.clientWidth, canvas.clientHeight);
-  return aimFrom(nx, ny);
-}
-
-function startRun() {
-  game = createGame();
+function startLevel(n) {
+  level = n;
+  run = createRun(n);
   screen = 'play';
+  pop = null;
 }
 
+// Same maths as the shot itself, so the preview cannot lie.
+function ghostArc(aim) {
+  if (!aim) return null;
+  let b = { x: 0, y: SLING_Y, z: 0, ...launchVelocity(aim.heading, aim.elevation, aim.power) };
+  const pts = [];
+  for (let i = 0; i < 26; i++) {
+    b = stepBody(b, 1 / 26);
+    if (b.y <= GROUND_Y) break;
+    pts.push({ x: b.x, y: b.y, z: b.z });
+  }
+  return pts;
+}
+
+// The release uses the gesture it is handed rather than anything cached from
+// a previous frame, so the shot is exactly the drag the player just made.
 const input = createInput(canvas, {
-  onPress() {
-    if (screen === 'play' && game.phase === 'aiming') game = beginCharge(game);
-  },
-  onRelease() {
-    if (screen === 'menu') { startRun(); return; }
-    if (screen === 'over') { startRun(); return; }
-    if (game.phase === 'charging') game = release(game, currentAim());
+  onRelease({ dx, dy }) {
+    if (screen === 'menu') { startLevel(level); return; }
+    if (screen === 'failed') { startLevel(level); return; }
+    if (screen === 'done') { startLevel(1); return; }
+    if (screen === 'cleared') {
+      const next = level + 1;
+      if (next > TOTAL_LEVELS) { screen = 'done'; return; }
+      startLevel(next);
+      return;
+    }
+    if (screen !== 'play' || run.phase !== 'aiming') return;
+    const aim = aimFromDrag(dx, dy, canvas.clientHeight);
+    if (!aim) return; // too short a drag: a cancel, not a dud shot
+    run = fire(run, aim);
   },
 });
 
@@ -46,16 +67,22 @@ function resize() {
 }
 
 function update(dt) {
-  if (screen !== 'play') {
-    game = tick(game, dt); // strays keep milling about behind the menu
-    return;
+  if (pop) pop = pop.life > 0 ? { ...pop, life: pop.life - dt * 1.4 } : null;
+
+  const before = run.phase;
+  run = tick(run, dt);
+
+  if (run.lastHit && before === 'flying' && !pop) {
+    pop = { ...run.lastHit, life: 1 };
   }
-  if (game.phase === 'charging') game = tickCharge(game, dt);
-  game = tick(game, dt);
-  if (game.phase === 'over') {
-    save = recordRun(save, game.score, STARTING_CATS);
+  if (screen !== 'play') return;
+
+  if (run.phase === 'cleared') {
+    save = recordClear(save, level, run.score);
     writeSave(save);
-    screen = 'over';
+    screen = 'cleared';
+  } else if (run.phase === 'failed') {
+    screen = 'failed';
   }
 }
 
@@ -63,17 +90,23 @@ function overlayLines() {
   if (screen === 'menu') {
     return [
       'Cat-a-pult',
-      'Aim with your finger. Hold to charge, let go to fling.',
-      'Put the cat through a hole. Tap to start.',
+      'Pull back and let go, like a slingshot.',
+      'Cats 20, T-rex 50. Tap to start.',
     ];
   }
-  if (screen === 'over') {
-    const beat = game.score >= save.bestScore && game.score > 0;
+  if (screen === 'cleared') {
+    const best = save.bestScores[String(level)] ?? run.score;
     return [
-      'Out of cats',
-      `Score ${game.score}${beat ? '  ·  new best!' : `  ·  best ${save.bestScore}`}`,
-      'Tap to play again',
+      `Level ${level} cleared`,
+      `Score ${run.score}  ·  Best ${best}`,
+      level >= TOTAL_LEVELS ? 'Tap to finish' : 'Tap for the next level',
     ];
+  }
+  if (screen === 'failed') {
+    return ['Out of rocks', `${aliveCount(run)} still standing`, 'Tap to try again'];
+  }
+  if (screen === 'done') {
+    return ['All 20 levels done', 'Tap to start over'];
   }
   return null;
 }
@@ -88,17 +121,26 @@ function frame(now) {
 
     const view = makeView(canvas);
     const dpr = canvas.width / canvas.clientWidth || 1;
-    const p = input.getPointer();
-    const power = game.phase === 'charging' ? chargeToPower(game.charge) : 0;
+    const d = input.getDrag();
+    const aiming = screen === 'play' && run.phase === 'aiming';
+    const aim = aiming && d
+      ? aimFromDrag(d.x - d.startX, d.y - d.startY, canvas.clientHeight)
+      : null;
 
     drawScene(ctx, {
-      strays: game.strays,
-      cat: game.cat,
-      slingLoaded: screen === 'play' && game.phase !== 'flying',
-      pull: power,
-      aimPx: screen === 'play' && p ? { x: p.x * dpr, y: p.y * dpr } : null,
-      power,
-      hud: { catsLeft: game.catsLeft, score: game.score, best: save.bestScore },
+      creatures: run.creatures,
+      rock: run.rock,
+      ghost: ghostArc(aim),
+      drag: aiming && d ? { x: d.x * dpr, y: d.y * dpr } : null,
+      loaded: aiming,
+      power: aim?.power ?? 0,
+      pop,
+      hud: {
+        level,
+        rocks: run.rocksLeft,
+        score: run.score,
+        left: aliveCount(run),
+      },
       overlay: overlayLines(),
     }, view);
   } catch (err) {

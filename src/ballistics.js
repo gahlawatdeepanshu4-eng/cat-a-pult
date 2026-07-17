@@ -1,6 +1,4 @@
-import {
-  GRAVITY, MAX_DT, MIN_LAUNCH_SPEED, MAX_LAUNCH_SPEED, CHARGE_SECONDS,
-} from './constants.js';
+import { GRAVITY, MAX_DT, MIN_LAUNCH_SPEED, MAX_LAUNCH_SPEED } from './constants.js';
 
 // heading: left/right angle away from straight ahead (+ is right)
 // elevation: upward angle from level
@@ -30,10 +28,4 @@ export function stepBody(body, dt, gravity = GRAVITY) {
 
 export function clampDt(dt) {
   return Math.min(dt, MAX_DT);
-}
-
-// Charging clamps at full rather than looping back to zero, so holding too
-// long costs you nothing.
-export function chargeToPower(heldSeconds) {
-  return Math.min(heldSeconds / CHARGE_SECONDS, 1);
 }
