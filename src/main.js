@@ -5,7 +5,7 @@ import { createInput } from './input.js';
 import { aimFromDrag } from './aim.js';
 import { createRun, fire, tick, aliveCount } from './game.js';
 import { loadSave, writeSave, recordClear } from './storage.js';
-import { SLING_Y, GROUND_Y, TOTAL_LEVELS } from './constants.js';
+import { SLING_Y, GROUND_Y, WALL_Z, TOTAL_LEVELS } from './constants.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -24,16 +24,21 @@ function startLevel(n) {
 }
 
 // Same maths as the shot itself, so the preview cannot lie.
+//
+// The arc runs all the way to the sand and reports where it lands. On a flat
+// screen a rock passing in FRONT of an animal looks exactly like a rock going
+// through it, so the player needs a depth cue: line the landing ring up with
+// an animal's shadow and the depths match.
 function ghostArc(aim) {
   if (!aim) return null;
   let b = { x: 0, y: SLING_Y, z: 0, ...launchVelocity(aim.heading, aim.elevation, aim.power) };
   const pts = [];
-  for (let i = 0; i < 26; i++) {
-    b = stepBody(b, 1 / 26);
-    if (b.y <= GROUND_Y) break;
-    pts.push({ x: b.x, y: b.y, z: b.z });
+  for (let i = 0; i < 400; i++) {
+    b = stepBody(b, 1 / 60);
+    if (b.y <= GROUND_Y || b.z > WALL_Z) break;
+    if (i % 3 === 0) pts.push({ x: b.x, y: b.y, z: b.z });
   }
-  return pts;
+  return { points: pts, landing: { x: b.x, y: GROUND_Y, z: Math.min(b.z, WALL_Z) } };
 }
 
 // The release uses the gesture it is handed rather than anything cached from
@@ -67,12 +72,15 @@ function resize() {
 }
 
 function update(dt) {
-  if (pop) pop = pop.life > 0 ? { ...pop, life: pop.life - dt * 1.4 } : null;
+  // Slow enough that the splat lands, is read, and the score follows it.
+  if (pop) pop = pop.life > 0 ? { ...pop, life: pop.life - dt * 0.85 } : null;
 
   const before = run.phase;
   run = tick(run, dt);
 
-  if (run.lastHit && before === 'flying' && !pop) {
+  // A fresh kill always replaces the last splat. lastHit is cleared on every
+  // fire, so a miss cannot resurrect the previous hit's blood.
+  if (run.lastHit && before === 'flying') {
     pop = { ...run.lastHit, life: 1 };
   }
   if (screen !== 'play') return;

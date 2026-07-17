@@ -1,5 +1,5 @@
 import { project } from './project.js';
-import { radiusOf, KIND } from './creatures.js';
+import { radiusOf, centreOf, KIND } from './creatures.js';
 import { WALL_Z, ARENA_HALF_WIDTH, ROCK_RADIUS } from './constants.js';
 
 // Decoration only. The holes score nothing now; they are what the arena wall
@@ -93,8 +93,7 @@ function drawCreatures(ctx, creatures, view) {
   // Painter's algorithm: furthest first, so nearer things overlap them.
   const living = creatures.filter((c) => c.alive).sort((a, b) => b.z - a.z);
   for (const c of living) {
-    const p = project(c, view);
-    const size = radiusOf(c) * 2.2 * p.scale * view.unit;
+    const size = radiusOf(c) * 2.2 * project(c, view).scale * view.unit;
 
     // A shadow on the sand sells how high a jumper or flyer actually is, and
     // gives the player a depth cue for aiming.
@@ -105,11 +104,23 @@ function drawCreatures(ctx, creatures, view) {
     ctx.ellipse(g.x, g.y, size * 0.34 * (1 - lift * 0.3), size * 0.12, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    emoji(ctx, KIND[c.kind].glyph, p.x, p.y - size * 0.4, size);
+    // Drawn at the shared centre, so the sprite sits exactly on its hitbox.
+    const mid = project(centreOf(c), view);
+    emoji(ctx, KIND[c.kind].glyph, mid.x, mid.y, size);
   }
 }
 
 function drawRock(ctx, rock, view) {
+  // Shadow first: it is the only thing telling the player how deep into the
+  // arena the rock actually is, which is what makes a near-miss readable
+  // instead of looking like the rock went through the animal.
+  const g = project({ x: rock.x, y: 0, z: rock.z }, view);
+  const gr = Math.max(2, ROCK_RADIUS * 1.4 * g.scale * view.unit);
+  ctx.fillStyle = 'rgba(90, 60, 30, 0.3)';
+  ctx.beginPath();
+  ctx.ellipse(g.x, g.y, gr, gr * 0.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
   const p = project(rock, view);
   const r = Math.max(2, ROCK_RADIUS * p.scale * view.unit);
   ctx.fillStyle = '#5b5348';
@@ -121,18 +132,36 @@ function drawRock(ctx, rock, view) {
   ctx.stroke();
 }
 
-// Ghost arc: where the rock would go for the drag being made right now.
-function drawGhost(ctx, points, view) {
-  if (!points?.length) return;
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  points.forEach((pt, i) => {
+// Ghost arc plus a landing ring on the sand.
+//
+// The ring is the important half. On a flat screen a rock passing in front of
+// an animal looks identical to one hitting it, so depth has to be shown some
+// other way: match the ring to an animal's shadow and they are at the same
+// depth.
+function drawGhost(ctx, ghost, view) {
+  if (!ghost?.points?.length) return;
+
+  ctx.fillStyle = '#ffffff';
+  ghost.points.forEach((pt, i) => {
     const p = project(pt, view);
-    ctx.globalAlpha = 0.75 * (1 - i / points.length);
+    ctx.globalAlpha = 0.7 * (1 - (i / ghost.points.length) * 0.75);
     ctx.beginPath();
-    ctx.arc(p.x, p.y, Math.max(1.5, 5 * p.scale * view.unit), 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, Math.max(1.2, 4 * p.scale * view.unit), 0, Math.PI * 2);
     ctx.fill();
   });
   ctx.globalAlpha = 1;
+
+  const l = project(ghost.landing, view);
+  const r = Math.max(4, 46 * l.scale * view.unit);
+  ctx.strokeStyle = 'rgba(255, 209, 102, 0.95)';
+  ctx.lineWidth = Math.max(1.5, 3 * l.scale * view.unit);
+  ctx.beginPath();
+  ctx.ellipse(l.x, l.y, r, r * 0.34, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(l.x - r * 0.5, l.y);
+  ctx.lineTo(l.x + r * 0.5, l.y);
+  ctx.stroke();
 }
 
 // The band the player is pulling: a straight line from the sling to the
@@ -224,14 +253,51 @@ function drawHud(ctx, hud, view) {
   ctx.fillText(`Score: ${hud.score}`, view.width / 2, view.height - pad - size);
 }
 
+// A small splat at the point of impact, then the score. The blood lands first
+// and the number follows a beat later, so the hit reads before the reward.
+const SPLAT = [
+  { a: 0, d: 0.0, r: 0.34 },
+  { a: 0.9, d: 0.62, r: 0.2 },
+  { a: 2.1, d: 0.78, r: 0.15 },
+  { a: 3.4, d: 0.55, r: 0.17 },
+  { a: 4.4, d: 0.85, r: 0.12 },
+  { a: 5.5, d: 0.66, r: 0.16 },
+];
+
+function drawSplat(ctx, pop, view) {
+  const p = project(pop, view);
+  const size = 46 * p.scale * view.unit;
+  // Fades only at the very end, so the mark is clearly visible on impact.
+  ctx.globalAlpha = Math.min(1, pop.life * 2.2);
+  ctx.fillStyle = '#a81b1b';
+  const grow = Math.min(1, (1 - pop.life) * 6);
+  for (const b of SPLAT) {
+    ctx.beginPath();
+    ctx.arc(
+      p.x + Math.cos(b.a) * size * b.d * grow,
+      p.y + Math.sin(b.a) * size * b.d * grow,
+      size * b.r * grow,
+      0, Math.PI * 2,
+    );
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
 function drawFloatingPoints(ctx, pop, view) {
   if (!pop) return;
+  drawSplat(ctx, pop, view);
+
+  // Hold the number back for a beat so the blood mark is seen first.
+  if (pop.life > 0.78) return;
   const p = project(pop, view);
-  ctx.globalAlpha = Math.max(0, pop.life);
+  const shown = (0.78 - pop.life) / 0.78;
+  ctx.globalAlpha = Math.max(0, Math.min(1, pop.life * 2));
   ctx.fillStyle = '#ffd166';
   ctx.font = `700 ${view.height * 0.05}px system-ui, sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText(`+${pop.points}`, p.x, p.y - (1 - pop.life) * view.height * 0.1);
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`+${pop.points}`, p.x, p.y - shown * view.height * 0.11);
   ctx.globalAlpha = 1;
 }
 

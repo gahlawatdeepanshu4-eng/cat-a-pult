@@ -144,15 +144,56 @@ export function resetDodges(creatures) {
   return creatures.map((c) => ({ ...c, dodgedThisShot: false }));
 }
 
-export function hits(rock, c) {
+// The one true centre of a creature's body. Both the renderer and the
+// collision test call this, so what you see is exactly what you can hit.
+// These used to be computed separately and disagreed by 13 units on a cat
+// and 18 on a T-rex: you aimed at the animal and the hitbox sat below it.
+// The 0.88 matches where render.js places the sprite above its ground point.
+export function centreOf(c) {
+  return { x: c.x, y: c.y + radiusOf(c) * 0.88, z: c.z };
+}
+
+export function hitRadius(c) {
+  return radiusOf(c) + ROCK_RADIUS;
+}
+
+// Distance from a point to a segment, in 3D.
+function distPointToSegment(p, a, b) {
+  const abx = b.x - a.x, aby = b.y - a.y, abz = b.z - a.z;
+  const apx = p.x - a.x, apy = p.y - a.y, apz = p.z - a.z;
+  const abLenSq = abx * abx + aby * aby + abz * abz;
+  // A zero-length step: fall back to a plain point distance.
+  const t = abLenSq === 0
+    ? 0
+    : Math.max(0, Math.min(1, (apx * abx + apy * aby + apz * abz) / abLenSq));
+  const cx = a.x + abx * t, cy = a.y + aby * t, cz = a.z + abz * t;
+  return Math.hypot(p.x - cx, p.y - cy, p.z - cz);
+}
+
+// Swept collision: tests the whole path the rock travelled this frame, not
+// just where it happened to land.
+//
+// This has to be swept. A full-power rock covers 42 units in a single 30fps
+// frame and over 50 on a slow phone, against a hit sphere of radius 48 — so
+// point sampling steps straight over an animal and the rock appears to pass
+// through it. That was the "rock goes through animals" bug.
+export function hitsSwept(from, to, c) {
   if (!c.alive) return false;
-  const r = radiusOf(c) + ROCK_RADIUS;
-  const dx = rock.x - c.x;
-  const dy = rock.y - (c.y + radiusOf(c) * 0.5);
-  const dz = rock.z - c.z;
-  return dx * dx + dy * dy + dz * dz <= r * r;
+  return distPointToSegment(centreOf(c), from, to) <= hitRadius(c);
+}
+
+export function hits(rock, c) {
+  return hitsSwept(rock, rock, c);
+}
+
+// Nearest along the rock's path wins, so a rock cannot skip a close animal to
+// kill one behind it.
+export function firstHitSwept(from, to, creatures) {
+  const struck = creatures.filter((c) => hitsSwept(from, to, c));
+  if (!struck.length) return null;
+  return struck.reduce((best, c) => (c.z < best.z ? c : best));
 }
 
 export function firstHit(rock, creatures) {
-  return creatures.find((c) => hits(rock, c)) ?? null;
+  return firstHitSwept(rock, rock, creatures);
 }

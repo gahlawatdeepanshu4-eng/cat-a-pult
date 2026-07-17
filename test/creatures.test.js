@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   spawn, stepCreature, stepAll, tryDodge, resetDodges, hits, firstHit,
-  radiusOf, pointsOf, xLimitAt,
+  hitsSwept, firstHitSwept, centreOf, radiusOf, pointsOf, xLimitAt,
 } from '../src/creatures.js';
 import {
   ARENA_HALF_WIDTH, NEAR_Z, WALL_Z, CAT_POINTS, TREX_POINTS, GROUND_Y,
@@ -143,7 +143,58 @@ test('resetDodges clears the flag so the next shot is a fresh chance', () => {
 
 test('a rock at a creature centre hits it', () => {
   const c = { ...spawn('cat', {}, fixedRand()), x: 0, y: 0, z: 400, alive: true };
-  assert.equal(hits({ x: 0, y: radiusOf(c) * 0.5, z: 400 }, c), true);
+  assert.equal(hits(centreOf(c), c), true);
+});
+
+// The hitbox used to be computed separately from where the sprite is drawn,
+// so it sat 13 units below a cat and 18 below a T-rex: you aimed at the animal
+// and hit nothing.
+test('the hit centre is where the sprite is actually drawn', () => {
+  for (const kind of ['cat', 'trex']) {
+    const c = { ...spawn(kind, {}, fixedRand()), x: 0, y: 0, z: 400, alive: true };
+    const drawnCentreY = c.y + radiusOf(c) * 0.88; // render.js places it here
+    assert.equal(centreOf(c).y, drawnCentreY, `${kind} hitbox is not on the sprite`);
+  }
+});
+
+// The bug that made the rock appear to pass through animals. A full-power rock
+// covers 42 units in one 30fps frame, more on a slow phone, against a 48-unit
+// hit sphere — so a point check lands either side and misses entirely.
+test('a rock that leaps past a creature in one frame still hits it', () => {
+  const c = { ...spawn('cat', {}, fixedRand()), x: 0, y: 0, z: 400, alive: true };
+  const mid = centreOf(c);
+  const from = { x: mid.x, y: mid.y, z: mid.z - 60 };
+  const to = { x: mid.x, y: mid.y, z: mid.z + 60 }; // 120 units in one step, straight through
+  assert.equal(hits(from, c), false, 'neither endpoint is inside the creature');
+  assert.equal(hits(to, c), false);
+  assert.equal(hitsSwept(from, to, c), true, 'but the path went straight through it');
+});
+
+test('a swept path that misses is still a miss', () => {
+  const c = { ...spawn('cat', {}, fixedRand()), x: 0, y: 0, z: 400, alive: true };
+  const from = { x: 600, y: 40, z: 340 };
+  const to = { x: 600, y: 40, z: 460 };
+  assert.equal(hitsSwept(from, to, c), false);
+});
+
+test('a zero-length step still registers a hit sitting on the creature', () => {
+  const c = { ...spawn('cat', {}, fixedRand()), x: 0, y: 0, z: 400, alive: true };
+  const p = centreOf(c);
+  assert.equal(hitsSwept(p, p, c), true);
+});
+
+test('a swept rock hits the nearest creature, not one hiding behind it', () => {
+  const near = { ...spawn('cat', {}, fixedRand()), id: 'near', x: 0, y: 0, z: 350, alive: true };
+  const far = { ...spawn('cat', {}, fixedRand()), id: 'far', x: 0, y: 0, z: 650, alive: true };
+  const from = { x: 0, y: centreOf(near).y, z: 100 };
+  const to = { x: 0, y: centreOf(far).y, z: 900 };
+  assert.equal(firstHitSwept(from, to, [far, near])?.id, 'near');
+});
+
+test('a swept path cannot kill a creature that is already dead', () => {
+  const c = { ...spawn('cat', {}, fixedRand()), x: 0, y: 0, z: 400, alive: false };
+  const mid = centreOf(c);
+  assert.equal(hitsSwept({ ...mid, z: mid.z - 60 }, { ...mid, z: mid.z + 60 }, c), false);
 });
 
 test('a rock far from a creature misses', () => {

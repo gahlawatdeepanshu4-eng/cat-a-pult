@@ -1,5 +1,7 @@
 import { launchVelocity, stepBody } from './ballistics.js';
-import { spawn, stepAll, tryDodge, resetDodges, firstHit, pointsOf } from './creatures.js';
+import {
+  spawn, stepAll, tryDodge, resetDodges, firstHitSwept, pointsOf, centreOf,
+} from './creatures.js';
 import { levelSpec } from './levels.js';
 import { GROUND_Y, SLING_Y, WALL_Z, ARENA_HALF_WIDTH } from './constants.js';
 
@@ -50,24 +52,30 @@ export function tick(run, dt, rand = Math.random) {
     return { ...run, creatures: stepAll(run.creatures, dt, opts) };
   }
 
+  const from = run.rock;
   const rock = stepBody(run.rock, dt);
 
   // Dodge before the hit test, so a successful dodge actually saves them.
   const dodged = run.creatures.map((c) => tryDodge(c, rock, run.spec.dodgeChance, rand));
   const creatures = stepAll(dodged, dt, opts);
 
-  const struck = firstHit(rock, creatures);
+  // Sweep the whole path travelled this frame. Checking only where the rock
+  // landed lets a fast rock skip straight over an animal.
+  const struck = firstHitSwept(from, rock, creatures);
   if (struck) {
     const after = creatures.map((c) => (c.id === struck.id ? { ...c, alive: false } : c));
+    const at = centreOf(struck);
     return settle({
       ...run,
       rock: null,
       creatures: after,
       score: run.score + pointsOf(struck),
-      lastHit: { kind: struck.kind, points: pointsOf(struck), x: struck.x, y: struck.y, z: struck.z },
+      lastHit: { kind: struck.kind, points: pointsOf(struck), x: at.x, y: at.y, z: at.z },
     });
   }
 
+  // The wall is solid scenery. Its holes are painted on, so a rock that
+  // reaches the wall always stops there and never passes through a hole.
   const missed = rock.y <= GROUND_Y
     || rock.z >= WALL_Z
     || Math.abs(rock.x) > ARENA_HALF_WIDTH;
