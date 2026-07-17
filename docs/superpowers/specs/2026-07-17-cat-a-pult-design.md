@@ -40,8 +40,12 @@ Each level contains:
 
 The player gets a limited number of shots per level, tuned per level, roughly three to five. Each shot scores distance points plus any moving-target bonus.
 
-**Level clear:** land in the target zone, OR cross a score threshold, before shots run out.
+**Level clear:** land the cat in the target zone before shots run out. This is the only win condition.
 **Level fail:** shots run out. The level resets for a fresh retry. There are no lives and no game over.
+
+**Score is a rating, not a gate.** Clearing a level is binary: the cat landed in the zone or it did not. Score measures how well the player did and drives the best-score-per-level record. It never unlocks or clears anything.
+
+This split is deliberate. Precision aiming is the core skill, and a score-based alternate win condition would let the player win without aiming well, implying the target zone is optional. It would also leave the player unsure what any given shot is for. The "don't let the player get stuck" problem that a score fallback normally solves is already handled by unlimited retries. Keeping score as a rating instead makes the moving target optional mastery content, the reason to replay a level once it can be cleared reliably, rather than a competing route to victory.
 
 A shot ends when the cat comes to rest or leaves the level bounds. The camera then pans back to the catapult for the next shot.
 
@@ -53,7 +57,7 @@ The game world uses its own coordinate system with a fixed virtual height (e.g. 
 
 **Art:** emoji sprites drawn to canvas. Cat is an emoji; moving targets are emoji; catapult and ground are simple shapes. A parallax background of a few bands scrolling at different speeds conveys distance as the camera follows.
 
-**HUD** (screen-fixed, does not scroll): shots remaining, current score, level number, and the level's target/threshold.
+**HUD** (screen-fixed, does not scroll): shots remaining, current score, level number, and best score for the level.
 
 **Trajectory hint:** during drag, a short dotted arc shows initial direction and power, fading out after a few points. It aids aiming without revealing the full shot.
 
@@ -67,7 +71,7 @@ Each module has one responsibility and a narrow interface.
 | `physics.js` | Pure projectile math. Given position, velocity, gravity, dt, returns new position. No canvas, no DOM |
 | `input.js` | Touch drag to `{angle, power}` on release. Owns nothing else |
 | `level.js` | Loads a level definition; tracks shots, score, and pass/fail state for the current attempt |
-| `levels.js` | Plain data. Array of level definitions: zone position and width, moving target config, shot limit, score threshold |
+| `levels.js` | Plain data. Array of level definitions: zone position and width, moving target config, shot limit |
 | `camera.js` | Tracks the visible region of the world; follows the cat, pans back to the catapult |
 | `render.js` | Draws world and HUD from game state. Read-only, never mutates state |
 | `storage.js` | localStorage read/write for progress and best scores. Wraps failures so a blocked storage API cannot crash the game |
@@ -103,7 +107,8 @@ Physics and level rules are pure functions and get unit tests runnable in Node w
 - Trajectory math
 - At-rest detection
 - Hit/miss zone logic
-- Score threshold and shot-limit rules
+- Shot-limit rules
+- Score accumulation (distance plus moving-target bonus) and best-score updates
 - Storage fallback on failure
 
 Rendering and touch feel are not unit tested. Those are verified by driving the game in a browser preview at phone dimensions.
