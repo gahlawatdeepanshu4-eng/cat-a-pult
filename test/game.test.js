@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import { createRun, fire, tick, aliveCount } from '../src/game.js';
 import { aimFromDrag } from '../src/aim.js';
 import { levelSpec } from '../src/levels.js';
+import { hitScore } from '../src/scoring.js';
 import { CAT_POINTS, TREX_POINTS, TOTAL_LEVELS, MAX_DRAG_FRACTION } from '../src/constants.js';
+
+const KILL_Z = 560; // where the killOne straight drag lands (see below)
 
 const H = 720;
 const seeded = (seed = 1) => () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
@@ -64,7 +67,7 @@ function killOne(kind) {
   const base = createRun(1, rand);
   const target = {
     ...base.creatures[0],
-    kind, flying: false, x: 0, y: 0, z: 560,
+    kind, flying: false, x: 0, y: 0, z: KILL_Z,
     alive: true, speed: 0, dodgedThisShot: false,
   };
   const run = {
@@ -77,9 +80,10 @@ function killOne(kind) {
   return flyToEnd(fire(run, aim), rand);
 }
 
-test('a cat is worth 20 and a T-rex is worth 50', () => {
-  assert.equal(killOne('cat').score, CAT_POINTS);
-  assert.equal(killOne('trex').score, TREX_POINTS);
+test('score is the creature base scaled by how far the hit landed', () => {
+  assert.equal(killOne('cat').score, hitScore(CAT_POINTS, KILL_Z));
+  assert.equal(killOne('trex').score, hitScore(TREX_POINTS, KILL_Z));
+  assert.ok(killOne('trex').score > killOne('cat').score, 'a T-rex still beats a cat');
 });
 
 test('killing the last creature clears the level', () => {
@@ -100,7 +104,9 @@ test('running out of rocks with creatures alive fails the level', () => {
 test('a hit is reported so the game can show the points', () => {
   const g = killOne('trex');
   assert.equal(g.lastHit.kind, 'trex');
-  assert.equal(g.lastHit.points, TREX_POINTS);
+  // The reported points are the distance-scaled value that was actually scored.
+  assert.equal(g.lastHit.points, hitScore(TREX_POINTS, KILL_Z));
+  assert.equal(g.lastHit.points, g.score);
 });
 
 test('creatures keep moving while a rock is in the air', () => {

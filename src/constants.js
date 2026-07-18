@@ -58,6 +58,12 @@ export const DODGE_SPEED = 300;
 export const FLY_MIN_Y = 95;
 export const FLY_MAX_Y = 210;
 
+// Scoring. Farther kills pay more: a hit's base points are multiplied by a
+// factor that climbs with depth, from SCORE_NEAR_MULT at NEAR_Z to
+// SCORE_FAR_MULT out at the wall. The long, risky shots are the rewarding ones.
+export const SCORE_NEAR_MULT = 1;
+export const SCORE_FAR_MULT = 2.5;
+
 // Levels
 export const TOTAL_LEVELS = 20;
 export const MAX_DODGE_CHANCE = 0.62;  // never 1: an always-dodging target is unhittable

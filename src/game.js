@@ -2,6 +2,7 @@ import { launchVelocity, stepBody } from './ballistics.js';
 import {
   spawn, stepAll, tryDodge, resetDodges, firstHitSwept, pointsOf, centreOf,
 } from './creatures.js';
+import { hitScore } from './scoring.js';
 import { levelSpec } from './levels.js';
 import { GROUND_Y, SLING_Y, WALL_Z, ARENA_HALF_WIDTH } from './constants.js';
 
@@ -63,12 +64,15 @@ export function tick(run, dt, rand = Math.random) {
   if (struck) {
     const after = creatures.map((c) => (c.id === struck.id ? { ...c, alive: false } : c));
     const at = centreOf(struck);
+    // Farther kills score more, so the points and the floating "+N" both use
+    // the distance-scaled value, not the flat base.
+    const gained = hitScore(pointsOf(struck), struck.z);
     return settle({
       ...run,
       rock: null,
       creatures: after,
-      score: run.score + pointsOf(struck),
-      lastHit: { kind: struck.kind, points: pointsOf(struck), x: at.x, y: at.y, z: at.z },
+      score: run.score + gained,
+      lastHit: { kind: struck.kind, points: gained, x: at.x, y: at.y, z: at.z },
     });
   }
 

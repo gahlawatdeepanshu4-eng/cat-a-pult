@@ -112,9 +112,17 @@ close-up arena spec). Approved decisions: build **phased with a play-test
 between each phase**; toughness is **speed + dodge only, no hit-points**;
 **each weapon plays differently**; the 4 extra creatures are mine to invent.
 
-Phases: 1 POV ✅ · 2 distance scoring · 3 fifty levels + 7 creatures +
+Phases: 1 POV ✅ · 2 distance scoring ✅ · 3 fifty levels + 7 creatures +
 speed/dodge scaling · 4 five weapons (catapult/crossbow/spear-crossbow/spear/
 bazooka, with pierce + splash) · 5 scenery themes every 5 levels.
+
+**Phase 2 (distance scoring) done.** New pure module `src/scoring.js`:
+`distanceMultiplier(z)` climbs 1.0 at `NEAR_Z` → 2.5 at `WALL_Z` (`SCORE_NEAR_MULT`
+/`SCORE_FAR_MULT` in constants), and `hitScore(base, z)` = base × multiplier
+rounded to a tidy 5. Wired into `game.js` (score + the floating "+N" both use it).
+In practice: cat 20/35/45 and T-rex 50/85/115 at near/mid/far. Fully unit-tested.
+Possible polish if the player wants it: a visible "×2" cue on far hits so the
+mechanic is legible (right now only the bigger +N communicates it).
 
 **Phase 1 (POV) is done and needs a play-test.** Raised the vantage and pushed
 creatures into the distance (`EYE_Y=620`, `HORIZON_FRACTION=0.26`, `NEAR_Z=460`,
