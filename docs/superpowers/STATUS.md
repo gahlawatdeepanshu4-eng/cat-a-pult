@@ -116,19 +116,19 @@ Phases: 1 POV ✅ · 2 distance scoring · 3 fifty levels + 7 creatures +
 speed/dodge scaling · 4 five weapons (catapult/crossbow/spear-crossbow/spear/
 bazooka, with pierce + splash) · 5 scenery themes every 5 levels.
 
-**Phase 1 (POV + steep lob shots) is done and needs a play-test.** Raised the
-vantage and pushed creatures into the distance (`EYE_Y`, `HORIZON_FRACTION`,
-`NEAR_Z`, `WALL_Z`). The sling stays at the **bottom** of the screen (a brief
-detour that lifted it up high was reverted — the player wanted it low). Shots
-are now **steep lobs** (`MIN_ELEVATION=0.5`, `MAX_ELEVATION=1.0`, ~29–57°) that
-arc high and drop onto the field.
+**Phase 1 (POV) is done and needs a play-test.** Raised the vantage and pushed
+creatures into the distance (`EYE_Y=620`, `HORIZON_FRACTION=0.26`, `NEAR_Z=460`,
+`WALL_Z=1500`). The sling stays at the **bottom** and shots use the **original
+aim** (`SLING_Y=70`, `MIN_ELEVATION=-0.05`, `MAX_ELEVATION=0.85`, power from
+total drag length).
 
-Key enabler: `aim.js` now **decouples the drag axes** — sideways pull = aim
-left/right, downward pull = power + steepness. Power no longer follows total
-drag length. Without this, aiming at a side target forced a flat, fast shot, so
-close-and-to-the-side creatures could only be hit near-flat and steep-only aim
-made them unreachable (proven: with the old coupled aim the steepest safe
-`MIN_ELEVATION` was ~0.10). Decoupled, everything stays reachable at 0.5+.
+Two detours were tried and **reverted** at the player's request: (1) a high
+launch shooting DOWN from a perch, and (2) steep lob shots via a decoupled aim
+(sideways=heading, down=power). Both worked and passed tests; the player just
+preferred the original shot feel. Lesson if steepness comes up again: with the
+coupled aim the steepest reachable `MIN_ELEVATION` is only ~0.10 (side targets
+need flat shots) — going steeper *requires* decoupling power from sideways pull,
+which the player did not like. Camera is kept steep per the player's choice.
 
 All reachability tests pass. Tuning knobs: the four camera ones, `SLING_Y`, the
 two elevation limits, `MAX_LAUNCH_SPEED`.

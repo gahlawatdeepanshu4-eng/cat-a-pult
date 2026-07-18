@@ -50,27 +50,12 @@ test('heading is clamped so you cannot fire behind yourself', () => {
 });
 
 test('elevation is clamped to its limits', () => {
-  // A lerp to the endpoint lands a rounding step short of it, so compare with a
-  // tolerance rather than exact equality.
-  const { elevation } = aimFromDrag(0, full * 9, H);
-  assert.ok(Math.abs(elevation - MAX_ELEVATION) < 1e-9, `${elevation} should reach ${MAX_ELEVATION}`);
-  assert.ok(elevation <= MAX_ELEVATION + 1e-9, 'never past the top of the range');
+  assert.equal(aimFromDrag(0, full * 9, H).elevation, MAX_ELEVATION);
 });
 
 test('dragging up does not fire the rock into the ground', () => {
   const shot = aimFromDrag(0, -full, H);
   assert.equal(shot.elevation, MIN_ELEVATION);
-  assert.ok(MIN_ELEVATION > 0, 'even the shallowest shot leaves the ground');
-});
-
-// Power is the downward pull only. Sideways aim must not add power, or aiming
-// at a side target would force a hard, flat shot and steep lobs could never
-// reach close-and-to-the-side creatures.
-test('aiming sideways changes direction, not power', () => {
-  const straight = aimFromDrag(0, full * 0.5, H);
-  const sideways = aimFromDrag(-full * 0.8, full * 0.5, H);
-  assert.equal(sideways.power, straight.power);
-  assert.ok(sideways.heading > straight.heading, 'the sideways pull did steer it');
 });
 
 test('a diagonal pull sets heading and elevation together', () => {

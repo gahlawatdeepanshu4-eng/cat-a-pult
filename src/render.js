@@ -279,9 +279,7 @@ function drawGhost(ctx, ghost, view) {
 }
 
 // The band the player is pulling: a straight line from the sling to the
-// finger, so the gesture reads as a slingshot rather than a mystery. The
-// slingshot sits low in the foreground (bottom of the screen); shots leave it
-// at a steep angle and arc onto the field.
+// finger, so the gesture reads as a slingshot rather than a mystery.
 function drawSling(ctx, view, drag, loaded) {
   const cx = view.width / 2;
   const base = view.height * 1.04;

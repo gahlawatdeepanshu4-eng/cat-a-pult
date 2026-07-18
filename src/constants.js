@@ -7,9 +7,7 @@
 export const GRAVITY = -380;
 export const MAX_DT = 1 / 30;
 
-// Launch. The sling sits low in the foreground (bottom of the screen). Shots
-// leave it at a steep upward angle and arc over onto the creatures out on the
-// field — see MIN_ELEVATION/MAX_ELEVATION below.
+// Launch
 export const GROUND_Y = 0;
 export const SLING_Y = 70;
 export const MIN_LAUNCH_SPEED = 360;
@@ -25,12 +23,8 @@ export const MIN_DRAG_PX = 12;
 // tan(heading) * WALL_Z, so heading and wall depth together decide how wide
 // the arena can usefully be.
 export const MAX_HEADING = 0.75;
-// Shots are steep lobs — even the shallowest leaves the sling at ~29 degrees and
-// arcs high onto the field, which suits looking down at it. This is only
-// possible because aim.js keeps the sideways pull out of power; otherwise side
-// targets would demand a flat shot. Raise for steeper, lower for flatter.
-export const MIN_ELEVATION = 0.5;
-export const MAX_ELEVATION = 1.0;
+export const MIN_ELEVATION = -0.05;
+export const MAX_ELEVATION = 0.85;
 
 // Arena. You fire across a distance now, so the play space is deep: creatures
 // start well back (NEAR_Z) and range almost to the backdrop (WALL_Z). The wide
