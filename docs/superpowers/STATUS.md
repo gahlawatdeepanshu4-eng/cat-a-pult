@@ -104,8 +104,28 @@ flyer — so the design spec's "Flying (level 4+)" section is now out of date.
 - Windows line-ending warnings on commit are harmless.
 - No audio in v1 by decision. Blood is intentionally light.
 
+## v2 CAMPAIGN — in progress
+
+We are rebuilding this into an open-landscape campaign. Full design in
+`docs/superpowers/specs/2026-07-18-cat-a-pult-campaign.md` (supersedes the
+close-up arena spec). Approved decisions: build **phased with a play-test
+between each phase**; toughness is **speed + dodge only, no hit-points**;
+**each weapon plays differently**; the 4 extra creatures are mine to invent.
+
+Phases: 1 POV ✅ · 2 distance scoring · 3 fifty levels + 7 creatures +
+speed/dodge scaling · 4 five weapons (catapult/crossbow/spear-crossbow/spear/
+bazooka, with pierce + splash) · 5 scenery themes every 5 levels.
+
+**Phase 1 (POV) is done and needs a play-test.** Raised the vantage and pushed
+creatures into the distance (`EYE_Y`, `HORIZON_FRACTION`, `NEAR_Z`, `WALL_Z` in
+`constants.js` — these four are the tuning knobs). Logic verified (all
+reachability tests pass); the *feel* of the new camera is unverified.
+
 ## Next steps
 
-1. Play-test the three "feel" questions above on the phone and report back.
-2. Tune from that feedback (flyer height, ring, difficulty curve, dodge rate).
-3. Only after feel is right: consider juice/sound, then deploy to a free host.
+1. **Play-test Phase 1 on the phone:** does the raised, shoot-across-distance
+   view feel good? Can you read how far each creature is? Report back; tune the
+   four camera knobs above from that.
+2. Then Phase 2 (distance-based scoring), and on down the phase list.
+3. Old v1 to-dos still open: the "glassy" complaint was a stale phone cache, not
+   the code (creatures are solid vectors); confirm once the cache is cleared.
