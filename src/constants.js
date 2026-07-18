@@ -26,17 +26,24 @@ export const MAX_HEADING = 0.75;
 export const MIN_ELEVATION = -0.05;
 export const MAX_ELEVATION = 0.85;
 
-// Arena
-export const WALL_Z = 900;
+// Arena. You fire across a distance now, so the play space is deep: creatures
+// start well back (NEAR_Z) and range almost to the backdrop (WALL_Z). The wide
+// gap between them is what lets the player read how far each creature is.
+export const WALL_Z = 1500;
 export const ARENA_HALF_WIDTH = 820;
-export const NEAR_Z = 260;   // creatures never come closer than this
+export const NEAR_Z = 460;   // creatures never come closer than this
 export const ROCK_RADIUS = 14;
 
-// Projection
+// Projection. EYE_Y is the world height that maps onto the horizon line, so a
+// bigger EYE_Y (relative to the ground at y=0) tilts the view further DOWN, as
+// if you are standing on a rise looking across the land. HORIZON_FRACTION is
+// how far down the screen that horizon sits; smaller lifts it up and shows more
+// ground. Together they give the raised, 3D vantage. Pure render — collision
+// works in world coordinates and does not see these.
 export const FOCAL = 780;
 export const VIRTUAL_HEIGHT = 720;
-export const EYE_Y = 240;
-export const HORIZON_FRACTION = 0.44;
+export const EYE_Y = 360;
+export const HORIZON_FRACTION = 0.38;
 
 // Creatures
 export const CAT_RADIUS = 34;
