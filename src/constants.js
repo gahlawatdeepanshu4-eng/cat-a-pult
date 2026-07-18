@@ -45,11 +45,23 @@ export const VIRTUAL_HEIGHT = 720;
 export const EYE_Y = 620;
 export const HORIZON_FRACTION = 0.26;
 
-// Creatures
+// Creatures. Seven kinds share one set of behaviours (wander, random hop,
+// dodge) and differ only in size, base speed and points. cat and trex are the
+// originals; the five "-rex" mashups are a cat/critter head on a dino body.
 export const CAT_RADIUS = 34;
 export const TREX_RADIUS = 48;
 export const CAT_POINTS = 20;
 export const TREX_POINTS = 50;
+export const CATREX_RADIUS = 44;
+export const CATREX_POINTS = 40;
+export const FROGREX_RADIUS = 40;
+export const FROGREX_POINTS = 30;
+export const BUNNYREX_RADIUS = 36;
+export const BUNNYREX_POINTS = 25;
+export const PIGREX_RADIUS = 50;
+export const PIGREX_POINTS = 45;
+export const DUCKTREX_RADIUS = 42;
+export const DUCKTREX_POINTS = 35;
 export const JUMP_SPEED = 240;
 export const DODGE_SPEED = 300;
 // Kept for the (currently unused) flyer capability in creatures.js. No level
@@ -65,10 +77,14 @@ export const SCORE_NEAR_MULT = 1;
 export const SCORE_FAR_MULT = 2.5;
 
 // Levels
-export const TOTAL_LEVELS = 20;
+export const TOTAL_LEVELS = 50;
 export const MAX_DODGE_CHANCE = 0.62;  // never 1: an always-dodging target is unhittable
 export const FIRST_JUMP_LEVEL = 2;
 export const FIRST_TREX_LEVEL = 2;
+// Creatures get faster as levels rise: their base speed is multiplied by this
+// factor, ramping from 1 at level 1 to MAX_SPEED_MULT at the last level. Faster
+// + dodgier is the whole of "harder to kill" — there is no hit-point system.
+export const MAX_SPEED_MULT = 1.9;
 // The per-second chance a grounded creature spontaneously hops, at the top
 // level. It ramps up from zero, so higher levels are a jumpier, less
 // predictable arena. A rate, not a probability: it is multiplied by the frame

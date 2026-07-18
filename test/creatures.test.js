@@ -20,6 +20,23 @@ test('a T-rex is worth more than a cat and is bigger', () => {
   assert.ok(radiusOf(trex) > radiusOf(cat));
 });
 
+test('all seven kinds spawn with sane points, size and speed', () => {
+  for (const kind of ['cat', 'trex', 'catrex', 'frogrex', 'bunnyrex', 'pigrex', 'ducktrex']) {
+    const c = spawn(kind, {}, fixedRand());
+    assert.equal(c.kind, kind);
+    assert.ok(pointsOf(c) > 0, `${kind} scores nothing`);
+    assert.ok(radiusOf(c) > 0, `${kind} has no size`);
+    assert.ok(c.speed > 0, `${kind} does not move`);
+  }
+});
+
+test('the level speed multiplier scales a creature up', () => {
+  const rand = () => 0.5; // same per-creature roll for both, so only the mult differs
+  const base = spawn('bunnyrex', {}, rand);
+  const fast = spawn('bunnyrex', { speedMult: 2 }, rand);
+  assert.ok(Math.abs(fast.speed - base.speed * 2) < 1e-9, 'speedMult should scale the base speed');
+});
+
 test('creatures spawn inside the arena and in front of the wall', () => {
   let s = 0;
   const rand = () => ((s = (s * 9301 + 49297) % 233280) / 233280);

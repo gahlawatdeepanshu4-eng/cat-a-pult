@@ -3,11 +3,15 @@ import assert from 'node:assert/strict';
 import { LEVELS, levelSpec } from '../src/levels.js';
 import {
   TOTAL_LEVELS, FIRST_JUMP_LEVEL, FIRST_TREX_LEVEL, MAX_JUMP_CHANCE,
+  MAX_SPEED_MULT,
 } from '../src/constants.js';
 
-test('there are twenty levels', () => {
+const KNOWN_KINDS = ['cat', 'trex', 'catrex', 'frogrex', 'bunnyrex', 'pigrex', 'ducktrex'];
+const countOf = (spec, kind) => spec.roster.find((r) => r.kind === kind)?.count ?? 0;
+
+test('there are fifty levels, numbered in order', () => {
   assert.equal(LEVELS.length, TOTAL_LEVELS);
-  assert.deepEqual(LEVELS.map((l) => l.n), Array.from({ length: 20 }, (_, i) => i + 1));
+  assert.deepEqual(LEVELS.map((l) => l.n), Array.from({ length: TOTAL_LEVELS }, (_, i) => i + 1));
 });
 
 test('levelSpec refuses levels outside the range', () => {
@@ -17,13 +21,11 @@ test('levelSpec refuses levels outside the range', () => {
 
 test('dodging starts at zero and rises', () => {
   assert.equal(LEVELS[0].dodgeChance, 0);
-  assert.ok(LEVELS[19].dodgeChance > LEVELS[0].dodgeChance);
+  assert.ok(LEVELS[TOTAL_LEVELS - 1].dodgeChance > LEVELS[0].dodgeChance);
 });
 
 test('dodging never reaches certainty, or a level could never be cleared', () => {
-  for (const l of LEVELS) {
-    assert.ok(l.dodgeChance < 1, `level ${l.n} dodge is ${l.dodgeChance}`);
-  }
+  for (const l of LEVELS) assert.ok(l.dodgeChance < 1, `level ${l.n} dodge is ${l.dodgeChance}`);
 });
 
 test('dodging never gets easier as levels rise', () => {
@@ -32,38 +34,51 @@ test('dodging never gets easier as levels rise', () => {
   }
 });
 
-test('jumping starts at the second level, not the first', () => {
+test('jumping starts at the second level, rises, and stays under its cap', () => {
   assert.equal(LEVELS[0].jumpChance, 0);
   assert.ok(levelSpec(FIRST_JUMP_LEVEL).jumpChance > 0);
-});
-
-test('jumping gets more likely — more random — as levels rise', () => {
   for (let i = 1; i < LEVELS.length; i++) {
-    assert.ok(LEVELS[i].jumpChance >= LEVELS[i - 1].jumpChance,
-      `level ${i + 1} jumps less than the one before it`);
+    assert.ok(LEVELS[i].jumpChance >= LEVELS[i - 1].jumpChance);
+    assert.ok(LEVELS[i].jumpChance <= MAX_JUMP_CHANCE);
   }
-  assert.ok(LEVELS[19].jumpChance > LEVELS[1].jumpChance,
-    'the last level should be far jumpier than the first jumping level');
 });
 
-test('the jump chance never exceeds its cap', () => {
+test('creatures speed up with the level, from 1x to the cap, never dropping', () => {
+  assert.equal(LEVELS[0].speedMult, 1);
+  assert.equal(LEVELS[TOTAL_LEVELS - 1].speedMult, MAX_SPEED_MULT);
+  for (let i = 1; i < LEVELS.length; i++) {
+    assert.ok(LEVELS[i].speedMult >= LEVELS[i - 1].speedMult);
+  }
+});
+
+test('the roster only holds known kinds with positive counts, summing to targets', () => {
   for (const l of LEVELS) {
-    assert.ok(l.jumpChance <= MAX_JUMP_CHANCE, `level ${l.n} jump is ${l.jumpChance}`);
+    let sum = 0;
+    for (const r of l.roster) {
+      assert.ok(KNOWN_KINDS.includes(r.kind), `level ${l.n} has unknown kind ${r.kind}`);
+      assert.ok(r.count > 0, `level ${l.n} lists ${r.kind} with no count`);
+      sum += r.count;
+    }
+    assert.equal(sum, l.targets, `level ${l.n} targets do not match its roster`);
   }
 });
 
-test('no level ever spawns a flying creature', () => {
+test('no level carries the old flying fields', () => {
   for (const l of LEVELS) {
-    assert.equal(l.flyingCats, undefined, `level ${l.n} still has flyingCats`);
-    assert.equal(l.flyingTrexes, undefined, `level ${l.n} still has flyingTrexes`);
-    assert.equal(l.targets, l.groundCats + l.groundTrexes,
-      `level ${l.n} targets include something other than ground creatures`);
+    assert.equal(l.flyingCats, undefined);
+    assert.equal(l.flyingTrexes, undefined);
   }
 });
 
-test('T-rexes appear from level two', () => {
-  assert.equal(LEVELS[0].groundTrexes, 0);
-  assert.ok(levelSpec(FIRST_TREX_LEVEL).groundTrexes > 0);
+test('each creature kind first appears on its scheduled level', () => {
+  const firstLevel = {
+    cat: 1, trex: FIRST_TREX_LEVEL, catrex: 8, frogrex: 15,
+    bunnyrex: 22, pigrex: 29, ducktrex: 36,
+  };
+  for (const [kind, from] of Object.entries(firstLevel)) {
+    if (from > 1) assert.equal(countOf(levelSpec(from - 1), kind), 0, `${kind} appeared too early`);
+    assert.ok(countOf(levelSpec(from), kind) >= 1, `${kind} missing at level ${from}`);
+  }
 });
 
 test('every level has at least one target', () => {
@@ -90,9 +105,4 @@ test('rocks give a comfortable margin above the target count', () => {
   for (const l of LEVELS) {
     assert.ok(l.rocks - l.targets >= 3, `level ${l.n} slack is only ${l.rocks - l.targets}`);
   }
-});
-
-test('later levels allow at least as much slack as early ones', () => {
-  const slack = (l) => l.rocks - l.targets;
-  assert.ok(slack(LEVELS[19]) >= 3, 'the last level must still be missable a few times');
 });

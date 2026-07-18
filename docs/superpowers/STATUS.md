@@ -113,8 +113,21 @@ between each phase**; toughness is **speed + dodge only, no hit-points**;
 **each weapon plays differently**; the 4 extra creatures are mine to invent.
 
 Phases: 1 POV ✅ · 2 distance scoring ✅ · 3 fifty levels + 7 creatures +
-speed/dodge scaling · 4 five weapons (catapult/crossbow/spear-crossbow/spear/
+speed/dodge scaling ✅ · 4 five weapons (catapult/crossbow/spear-crossbow/spear/
 bazooka, with pierce + splash) · 5 scenery themes every 5 levels.
+
+**Phase 3 done — needs a play-test of the new creatures' looks.** Now 50 levels
+(`TOTAL_LEVELS`). Seven kinds (`creatures.js` KIND + `constants.js` sizes/points):
+cat, trex, catrex, frogrex, bunnyrex, pigrex, ducktrex — the five mashups share
+one vector "dino body" in `render.js` with a swapped head, so they read as a
+family. `levels.js` now builds a **roster** from a `SCHEDULE` (each kind enters
+on a set level, then +1 every `GROWTH_EVERY`=16). Creatures speed up with level
+(`speedMult`, 1→`MAX_SPEED_MULT`=1.9) — that plus dodge/jump is all of "harder
+to kill" (no HP). Curve at a glance: L1 = 3 cats; L50 = 21 creatures of all 7
+kinds, 37 rocks, dodge .62 / jump .60 / speed 1.9×. All 50 levels proven
+clearable (reachability tests) and the render path is crash-tested for every
+kind, but the actual **appearance of the 5 new creatures is unverified** —
+that's the play-test ask.
 
 **Phase 2 (distance scoring) done.** New pure module `src/scoring.js`:
 `distanceMultiplier(z)` climbs 1.0 at `NEAR_Z` → 2.5 at `WALL_Z` (`SCORE_NEAR_MULT`

@@ -84,28 +84,36 @@ function drawVectorCat(ctx, x, y, s, face) {
   ctx.fill();
 }
 
-function drawVectorTrex(ctx, x, y, s, face) {
-  const f = face;
-  // Tail
-  outlined(ctx, s, '#5b9d54', () => {
+function eyeDot(ctx, x, y, r) {
+  ctx.fillStyle = '#1e160c';
+  ctx.beginPath();
+  ctx.ellipse(x, y, r, r * 1.25, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// The shared reptile body — tail, hind legs, torso. Every "-rex" sits on this,
+// so the six of them read as one family and only the head and colours change.
+function dinoBody(ctx, x, y, s, f, pal) {
+  outlined(ctx, s, pal.limb, () => {
     ctx.beginPath();
     ctx.moveTo(x - f * s * 0.5, y + s * 0.1);
     ctx.quadraticCurveTo(x - f * s * 1.6, y - s * 0.1, x - f * s * 1.7, y + s * 0.35);
     ctx.quadraticCurveTo(x - f * s * 1.2, y + s * 0.4, x - f * s * 0.5, y + s * 0.5);
     ctx.closePath();
   });
-  // Legs
-  outlined(ctx, s, '#4f9048', () => {
+  outlined(ctx, s, pal.limb, () => {
     ctx.beginPath();
     for (const dx of [-0.05, 0.4]) {
       if (ctx.roundRect) ctx.roundRect(x + f * s * dx, y + s * 0.5, s * 0.3, s * 0.6, s * 0.12);
       else ctx.rect(x + f * s * dx, y + s * 0.5, s * 0.3, s * 0.6);
     }
   });
-  // Body
-  outlined(ctx, s, '#63a85a', () => ellipse(ctx, x, y + s * 0.15, s * 0.98, s * 0.8));
-  // Head
-  outlined(ctx, s, '#6cb162', () => {
+  outlined(ctx, s, pal.body, () => ellipse(ctx, x, y + s * 0.15, s * 0.98, s * 0.8));
+}
+
+// Heads. Each draws itself at a neck point up and forward of the body centre.
+function trexHead(ctx, x, y, s, f, pal) {
+  outlined(ctx, s, pal.head, () => {
     ctx.beginPath();
     ctx.moveTo(x + f * s * 0.2, y - s * 0.9);
     ctx.quadraticCurveTo(x + f * s * 1.5, y - s * 0.85, x + f * s * 1.5, y - s * 0.3);
@@ -113,7 +121,6 @@ function drawVectorTrex(ctx, x, y, s, face) {
     ctx.quadraticCurveTo(x - f * s * 0.1, y - s * 0.5, x + f * s * 0.2, y - s * 0.9);
     ctx.closePath();
   });
-  // Teeth
   ctx.fillStyle = '#fff';
   for (let i = 0; i < 4; i++) {
     ctx.beginPath();
@@ -124,16 +131,114 @@ function drawVectorTrex(ctx, x, y, s, face) {
     ctx.closePath();
     ctx.fill();
   }
-  // Eye
-  ctx.fillStyle = '#1e160c';
-  ellipse(ctx, x + f * s * 0.75, y - s * 0.55, s * 0.1, s * 0.13);
+  eyeDot(ctx, x + f * s * 0.75, y - s * 0.55, s * 0.1);
+}
+
+function catrexHead(ctx, x, y, s, f, pal) {
+  const hx = x + f * s * 0.5, hy = y - s * 0.6, r = s * 0.5;
+  for (const dx of [-0.55, 0.55]) {
+    outlined(ctx, s, pal.head, () => {
+      ctx.beginPath();
+      ctx.moveTo(hx + dx * r, hy - r * 0.4);
+      ctx.lineTo(hx + dx * r * 1.25, hy - r * 1.25);
+      ctx.lineTo(hx + dx * r * 0.15, hy - r * 0.7);
+      ctx.closePath();
+    });
+  }
+  outlined(ctx, s, pal.head, () => ellipse(ctx, hx, hy, r, r * 0.92));
+  eyeDot(ctx, hx - f * r * 0.32, hy - r * 0.05, s * 0.08);
+  eyeDot(ctx, hx + f * r * 0.32, hy - r * 0.05, s * 0.08);
+  ctx.fillStyle = '#c94f3a';
+  ellipse(ctx, hx + f * r * 0.02, hy + r * 0.3, s * 0.07, s * 0.05);
   ctx.fill();
 }
 
+function frogrexHead(ctx, x, y, s, f, pal) {
+  const hx = x + f * s * 0.55, hy = y - s * 0.48, r = s * 0.5;
+  outlined(ctx, s, pal.head, () => ellipse(ctx, hx, hy, r * 1.2, r * 0.8));
+  for (const dx of [-0.55, 0.55]) {
+    outlined(ctx, s, pal.head, () => ellipse(ctx, hx + dx * r, hy - r * 0.65, r * 0.4, r * 0.4));
+    eyeDot(ctx, hx + dx * r, hy - r * 0.65, s * 0.09);
+  }
+  ctx.strokeStyle = '#1e160c';
+  ctx.lineWidth = Math.max(1, s * 0.05);
+  ctx.beginPath();
+  ctx.moveTo(hx - r * 0.8, hy + r * 0.1);
+  ctx.quadraticCurveTo(hx, hy + r * 0.55, hx + r * 0.8, hy + r * 0.1);
+  ctx.stroke();
+}
+
+function bunnyrexHead(ctx, x, y, s, f, pal) {
+  const hx = x + f * s * 0.55, hy = y - s * 0.55, r = s * 0.46;
+  for (const dx of [-0.35, 0.35]) {
+    outlined(ctx, s, pal.head, () => ellipse(ctx, hx + dx * r, hy - r * 1.3, r * 0.28, r * 0.9));
+  }
+  outlined(ctx, s, pal.head, () => ellipse(ctx, hx, hy, r, r));
+  eyeDot(ctx, hx + f * r * 0.3, hy - r * 0.05, s * 0.08);
+  ctx.fillStyle = '#c94f3a';
+  ellipse(ctx, hx + f * r * 0.05, hy + r * 0.35, s * 0.06, s * 0.05);
+  ctx.fill();
+}
+
+function pigrexHead(ctx, x, y, s, f, pal) {
+  const hx = x + f * s * 0.5, hy = y - s * 0.6, r = s * 0.5;
+  for (const dx of [-0.5, 0.5]) {
+    outlined(ctx, s, pal.head, () => {
+      ctx.beginPath();
+      ctx.moveTo(hx + dx * r, hy - r * 0.55);
+      ctx.lineTo(hx + dx * r * 1.35, hy - r * 1.1);
+      ctx.lineTo(hx + dx * r * 0.1, hy - r * 0.75);
+      ctx.closePath();
+    });
+  }
+  outlined(ctx, s, pal.head, () => ellipse(ctx, hx, hy, r, r * 0.95));
+  outlined(ctx, s, pal.limb, () => ellipse(ctx, hx + f * r * 0.6, hy + r * 0.15, r * 0.4, r * 0.32));
+  ctx.fillStyle = '#7a4a2a';
+  ellipse(ctx, hx + f * r * 0.5, hy + r * 0.15, s * 0.035, s * 0.06); ctx.fill();
+  ellipse(ctx, hx + f * r * 0.75, hy + r * 0.15, s * 0.035, s * 0.06); ctx.fill();
+  ctx.fillStyle = '#fff';
+  for (const dx of [0.32, 0.72]) {
+    ctx.beginPath();
+    const tx = hx + f * r * dx;
+    ctx.moveTo(tx, hy + r * 0.34);
+    ctx.lineTo(tx + f * s * 0.03, hy + r * 0.58);
+    ctx.lineTo(tx + f * s * 0.1, hy + r * 0.36);
+    ctx.closePath();
+    ctx.fill();
+  }
+  eyeDot(ctx, hx - f * r * 0.12, hy - r * 0.15, s * 0.08);
+}
+
+function ducktrexHead(ctx, x, y, s, f, pal) {
+  const hx = x + f * s * 0.52, hy = y - s * 0.62, r = s * 0.5;
+  outlined(ctx, s, pal.head, () => ellipse(ctx, hx, hy, r, r));
+  outlined(ctx, s, '#e79a2a', () => ellipse(ctx, hx + f * r * 0.95, hy + r * 0.12, r * 0.7, r * 0.22));
+  eyeDot(ctx, hx + f * r * 0.2, hy - r * 0.2, s * 0.09);
+}
+
+// Colours per kind (body / limbs / head) and which head to draw.
+const PAL = {
+  trex: { body: '#63a85a', limb: '#4f9048', head: '#6cb162' },
+  catrex: { body: '#f0a24c', limb: '#e0902f', head: '#f4ac5c' },
+  frogrex: { body: '#74c247', limb: '#5aa531', head: '#84d257' },
+  bunnyrex: { body: '#c2bab0', limb: '#a69e94', head: '#d0c8be' },
+  pigrex: { body: '#f2a6b4', limb: '#e087a0', head: '#f6b4c2' },
+  ducktrex: { body: '#e8c84f', limb: '#d0af30', head: '#f0d65f' },
+};
+const HEAD = {
+  trex: trexHead, catrex: catrexHead, frogrex: frogrexHead,
+  bunnyrex: bunnyrexHead, pigrex: pigrexHead, ducktrex: ducktrexHead,
+};
+
 function drawCreatureBody(ctx, c, x, y, s) {
-  const face = c.dir >= 0 ? 1 : -1;
-  if (c.kind === 'trex') drawVectorTrex(ctx, x, y, s, face);
-  else drawVectorCat(ctx, x, y, s, face);
+  const f = c.dir >= 0 ? 1 : -1;
+  if (c.kind === 'cat') {
+    drawVectorCat(ctx, x, y, s, f);
+    return;
+  }
+  const pal = PAL[c.kind];
+  dinoBody(ctx, x, y, s, f, pal);
+  HEAD[c.kind](ctx, x, y, s, f, pal);
 }
 
 function drawSky(ctx, view) {

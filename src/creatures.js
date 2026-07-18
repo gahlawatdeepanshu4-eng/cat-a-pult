@@ -1,12 +1,21 @@
 import {
   ARENA_HALF_WIDTH, NEAR_Z, WALL_Z, GROUND_Y, GRAVITY, MAX_HEADING,
   CAT_RADIUS, TREX_RADIUS, CAT_POINTS, TREX_POINTS,
+  CATREX_RADIUS, CATREX_POINTS, FROGREX_RADIUS, FROGREX_POINTS,
+  BUNNYREX_RADIUS, BUNNYREX_POINTS, PIGREX_RADIUS, PIGREX_POINTS,
+  DUCKTREX_RADIUS, DUCKTREX_POINTS,
   JUMP_SPEED, DODGE_SPEED, FLY_MIN_Y, FLY_MAX_Y, ROCK_RADIUS,
 } from './constants.js';
 
+// All seven behave identically; they differ only in size, base speed, points.
 export const KIND = {
-  cat: { radius: CAT_RADIUS, points: CAT_POINTS, speed: 90, glyph: '🐱' },
-  trex: { radius: TREX_RADIUS, points: TREX_POINTS, speed: 55, glyph: '🦖' },
+  cat: { radius: CAT_RADIUS, points: CAT_POINTS, speed: 90 },
+  trex: { radius: TREX_RADIUS, points: TREX_POINTS, speed: 55 },
+  catrex: { radius: CATREX_RADIUS, points: CATREX_POINTS, speed: 65 },
+  frogrex: { radius: FROGREX_RADIUS, points: FROGREX_POINTS, speed: 80 },
+  bunnyrex: { radius: BUNNYREX_RADIUS, points: BUNNYREX_POINTS, speed: 110 },
+  pigrex: { radius: PIGREX_RADIUS, points: PIGREX_POINTS, speed: 45 },
+  ducktrex: { radius: DUCKTREX_RADIUS, points: DUCKTREX_POINTS, speed: 75 },
 };
 
 const HARD_X_LIMIT = ARENA_HALF_WIDTH - 90;
@@ -20,7 +29,7 @@ export function xLimitAt(z) {
   return Math.min(HARD_X_LIMIT, Math.tan(MAX_HEADING) * z * 0.88);
 }
 
-export function spawn(kind, { flying = false }, rand) {
+export function spawn(kind, { flying = false, speedMult = 1 }, rand) {
   const z = NEAR_Z + rand() * (WALL_Z - NEAR_Z - 120);
   const limit = xLimitAt(z);
   return {
@@ -32,7 +41,8 @@ export function spawn(kind, { flying = false }, rand) {
     y: flying ? FLY_MIN_Y + rand() * (FLY_MAX_Y - FLY_MIN_Y) : GROUND_Y,
     z,
     dir: rand() < 0.5 ? -1 : 1,
-    speed: KIND[kind].speed * (0.7 + rand() * 0.6),
+    // Base speed, a little per-creature variety, then the level's speed-up.
+    speed: KIND[kind].speed * (0.7 + rand() * 0.6) * speedMult,
     vy: 0,
     airborne: false,
     dodgedThisShot: false,

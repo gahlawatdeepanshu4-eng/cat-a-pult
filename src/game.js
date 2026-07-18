@@ -11,10 +11,10 @@ export function createRun(levelNumber, rand = Math.random) {
   const spec = levelSpec(levelNumber);
   if (!spec) return null;
 
-  const creatures = [
-    ...Array.from({ length: spec.groundCats }, () => spawn('cat', { flying: false }, rand)),
-    ...Array.from({ length: spec.groundTrexes }, () => spawn('trex', { flying: false }, rand)),
-  ];
+  const creatures = spec.roster.flatMap(({ kind, count }) =>
+    Array.from({ length: count }, () =>
+      spawn(kind, { flying: false, speedMult: spec.speedMult }, rand)),
+  );
 
   return {
     spec,
