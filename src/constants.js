@@ -42,8 +42,8 @@ export const ROCK_RADIUS = 14;
 // works in world coordinates and does not see these.
 export const FOCAL = 780;
 export const VIRTUAL_HEIGHT = 720;
-export const EYE_Y = 360;
-export const HORIZON_FRACTION = 0.38;
+export const EYE_Y = 620;
+export const HORIZON_FRACTION = 0.26;
 
 // Creatures
 export const CAT_RADIUS = 34;
