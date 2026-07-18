@@ -1,11 +1,11 @@
 import {
-  TOTAL_LEVELS, MAX_DODGE_CHANCE, FIRST_JUMP_LEVEL, FIRST_TREX_LEVEL,
-  MAX_JUMP_CHANCE, MAX_SPEED_MULT,
+  MAX_DODGE_CHANCE, FIRST_JUMP_LEVEL, FIRST_TREX_LEVEL,
+  MAX_JUMP_CHANCE, MAX_SPEED_MULT, CAMPAIGN_LEVELS, SAMPLER_LEVELS, SAMPLER_MODE,
 } from './constants.js';
 
-// When each creature first appears and how many start out. After it appears, a
-// kind gains one more every GROWTH_EVERY levels, so the field fills up and
-// diversifies as you climb. cat and trex use FIRST_TREX_LEVEL's sibling below.
+// When each creature first appears in the full campaign, and how many start
+// out. After it appears, a kind gains one more every GROWTH_EVERY levels, so the
+// field fills up and diversifies as you climb.
 const GROWTH_EVERY = 16;
 const SCHEDULE = [
   { kind: 'cat', from: 1, base: 3 },
@@ -17,39 +17,63 @@ const SCHEDULE = [
   { kind: 'ducktrex', from: 36, base: 1 },
 ];
 
-// The curve is a formula, not fifty hand-written blobs, so it can be tuned in
-// one place and cannot drift into an unwinnable shape halfway up. Every count
-// is non-decreasing in the level, which keeps the target total monotonic.
-export function levelSpec(n) {
-  if (n < 1 || n > TOTAL_LEVELS) return null;
-  const t = (n - 1) / (TOTAL_LEVELS - 1); // 0 at level 1, 1 at the last level
+// The 5-level sampler: hand-picked rosters so every one of the seven kinds is
+// seen across five levels, and all seven share the screen on the last one.
+const SAMPLER_ROSTERS = {
+  1: [['cat', 3], ['trex', 1]],
+  2: [['cat', 2], ['trex', 1], ['catrex', 2]],
+  3: [['cat', 2], ['catrex', 1], ['frogrex', 2], ['bunnyrex', 1]],
+  4: [['cat', 2], ['trex', 1], ['bunnyrex', 1], ['pigrex', 2]],
+  5: [['cat', 1], ['trex', 1], ['catrex', 1], ['frogrex', 1], ['bunnyrex', 1], ['pigrex', 1], ['ducktrex', 2]],
+};
 
+// Turn a roster and a position in the run (n of total) into a full level spec.
+// Difficulty is a formula of how far through you are, so both the 50-level
+// campaign and the 5-level sampler ramp from nothing to full across their span.
+function specFrom(n, total, roster) {
+  const t = (n - 1) / (total - 1); // 0 at level 1, 1 at the last level
+  const targets = roster.reduce((sum, r) => sum + r.count, 0);
+  return {
+    n,
+    roster,
+    targets,
+    // Never reaches 1. A target that always dodges could never be killed.
+    dodgeChance: +(MAX_DODGE_CHANCE * t).toFixed(3),
+    // Some creatures walk, some hop; a per-second dice roll that climbs with t.
+    jumpChance: n < FIRST_JUMP_LEVEL ? 0 : +(MAX_JUMP_CHANCE * t).toFixed(3),
+    // Everything moves faster as you climb — with dodging, the whole of
+    // "harder to kill" (no hit-points).
+    speedMult: +(1 + t * (MAX_SPEED_MULT - 1)).toFixed(3),
+    // Enough to miss every creature a couple of times, plus 10% breathing room.
+    rocks: Math.ceil((targets + 4 + Math.floor(t * 8)) * 1.1),
+  };
+}
+
+// The real game: fifty levels generated from SCHEDULE. Every count is
+// non-decreasing in n, which keeps the target total monotonic.
+export function campaignSpec(n) {
+  if (n < 1 || n > CAMPAIGN_LEVELS) return null;
   const roster = SCHEDULE
     .map(({ kind, from, base }) => ({
       kind,
       count: n < from ? 0 : base + Math.floor((n - from) / GROWTH_EVERY),
     }))
     .filter((r) => r.count > 0);
-
-  const targets = roster.reduce((sum, r) => sum + r.count, 0);
-
-  return {
-    n,
-    roster,
-    targets,
-    // Never reaches 1. A target that always dodges could never be killed and
-    // the level could never be cleared.
-    dodgeChance: +(MAX_DODGE_CHANCE * t).toFixed(3),
-    // Some creatures walk, some hop; a per-second dice roll that climbs with the
-    // level, so the arena gets steadily more restless the higher you go.
-    jumpChance: n < FIRST_JUMP_LEVEL ? 0 : +(MAX_JUMP_CHANCE * t).toFixed(3),
-    // Everything moves faster as levels rise, which (with dodging) is the whole
-    // of "harder to kill".
-    speedMult: +(1 + t * (MAX_SPEED_MULT - 1)).toFixed(3),
-    // Generous enough that every creature can be missed a couple of times,
-    // then 10% more on top for a bit more breathing room.
-    rocks: Math.ceil((targets + 4 + Math.floor(t * 8)) * 1.1),
-  };
+  return specFrom(n, CAMPAIGN_LEVELS, roster);
 }
 
-export const LEVELS = Array.from({ length: TOTAL_LEVELS }, (_, i) => levelSpec(i + 1));
+// The short test build: five hand-picked levels covering every kind.
+export function samplerSpec(n) {
+  if (n < 1 || n > SAMPLER_LEVELS) return null;
+  const roster = SAMPLER_ROSTERS[n].map(([kind, count]) => ({ kind, count }));
+  return specFrom(n, SAMPLER_LEVELS, roster);
+}
+
+export function levelSpec(n) {
+  return SAMPLER_MODE ? samplerSpec(n) : campaignSpec(n);
+}
+
+export const LEVELS = Array.from(
+  { length: SAMPLER_MODE ? SAMPLER_LEVELS : CAMPAIGN_LEVELS },
+  (_, i) => levelSpec(i + 1),
+);

@@ -10,7 +10,12 @@ import { GROUND_Y, SLING_Y, WALL_Z, ARENA_HALF_WIDTH } from './constants.js';
 export function createRun(levelNumber, rand = Math.random) {
   const spec = levelSpec(levelNumber);
   if (!spec) return null;
+  return createRunFromSpec(spec, rand);
+}
 
+// Split out so tests can build a run from any spec (campaign or sampler)
+// without depending on which mode is active.
+export function createRunFromSpec(spec, rand = Math.random) {
   const creatures = spec.roster.flatMap(({ kind, count }) =>
     Array.from({ length: count }, () =>
       spawn(kind, { flying: false, speedMult: spec.speedMult }, rand)),

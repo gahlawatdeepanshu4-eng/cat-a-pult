@@ -76,8 +76,15 @@ export const FLY_MAX_Y = 210;
 export const SCORE_NEAR_MULT = 1;
 export const SCORE_FAR_MULT = 2.5;
 
-// Levels
-export const TOTAL_LEVELS = 50;
+// Levels. SAMPLER_MODE is a short 5-level build for play-testing the whole game
+// fast: every creature (and, once built, every weapon) shows up across 5 levels,
+// with difficulty ramping to full by the last one. Flip it to false for the real
+// 50-level campaign. TOTAL_LEVELS follows the mode; the two generators in
+// levels.js each use their own fixed length so both stay correct either way.
+export const SAMPLER_MODE = true;
+export const CAMPAIGN_LEVELS = 50;
+export const SAMPLER_LEVELS = 5;
+export const TOTAL_LEVELS = SAMPLER_MODE ? SAMPLER_LEVELS : CAMPAIGN_LEVELS;
 export const MAX_DODGE_CHANCE = 0.62;  // never 1: an always-dodging target is unhittable
 export const FIRST_JUMP_LEVEL = 2;
 export const FIRST_TREX_LEVEL = 2;

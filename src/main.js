@@ -114,7 +114,7 @@ function overlayLines() {
     return ['Out of rocks', `${aliveCount(run)} still standing`, 'Tap to try again'];
   }
   if (screen === 'done') {
-    return ['All 20 levels done', 'Tap to start over'];
+    return [`All ${TOTAL_LEVELS} levels done`, 'Tap to start over'];
   }
   return null;
 }

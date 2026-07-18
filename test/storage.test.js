@@ -65,8 +65,11 @@ test('clearing the last level does not unlock past the end', () => {
 });
 
 test('replaying an early level does not lose later progress', () => {
-  const save = { ...DEFAULT_SAVE, unlockedLevel: 9 };
-  assert.equal(recordClear(save, 1, 100).unlockedLevel, 9);
+  // A level unlocked partway through, valid whether the build is the 5-level
+  // sampler or the 50-level campaign.
+  const reached = Math.min(4, TOTAL_LEVELS);
+  const save = { ...DEFAULT_SAVE, unlockedLevel: reached };
+  assert.equal(recordClear(save, 1, 100).unlockedLevel, reached);
 });
 
 test('the higher score for a level is kept', () => {

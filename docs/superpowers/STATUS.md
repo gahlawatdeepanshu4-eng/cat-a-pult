@@ -112,6 +112,14 @@ close-up arena spec). Approved decisions: build **phased with a play-test
 between each phase**; toughness is **speed + dodge only, no hit-points**;
 **each weapon plays differently**; the 4 extra creatures are mine to invent.
 
+**SAMPLER MODE is currently ON** (`SAMPLER_MODE = true` in `constants.js`). This
+is a 5-level test build so the player can see every creature (and, once built,
+every weapon) fast instead of grinding 50 levels. `levels.js` has two
+generators — `campaignSpec` (50) and `samplerSpec` (5) — and tests cover both
+regardless of which is active. Flip `SAMPLER_MODE` to false for the real
+campaign. When weapons land (Phase 4), map one weapon per sampler level so all
+five are seen in the 5-level build.
+
 Phases: 1 POV ✅ · 2 distance scoring ✅ · 3 fifty levels + 7 creatures +
 speed/dodge scaling ✅ · 4 five weapons (catapult/crossbow/spear-crossbow/spear/
 bazooka, with pierce + splash) · 5 scenery themes every 5 levels.

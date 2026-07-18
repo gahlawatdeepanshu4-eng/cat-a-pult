@@ -1,10 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createRun, fire, tick, aliveCount } from '../src/game.js';
+import { createRun, createRunFromSpec, fire, tick, aliveCount } from '../src/game.js';
 import { aimFromDrag } from '../src/aim.js';
-import { levelSpec } from '../src/levels.js';
+import { levelSpec, campaignSpec, samplerSpec } from '../src/levels.js';
 import { hitScore } from '../src/scoring.js';
-import { CAT_POINTS, TREX_POINTS, TOTAL_LEVELS, MAX_DRAG_FRACTION } from '../src/constants.js';
+import {
+  CAT_POINTS, TREX_POINTS, TOTAL_LEVELS, MAX_DRAG_FRACTION,
+  CAMPAIGN_LEVELS, SAMPLER_LEVELS,
+} from '../src/constants.js';
 
 const KILL_Z = 560; // where the killOne straight drag lands (see below)
 
@@ -128,9 +131,9 @@ test('tick does not mutate the run passed in', () => {
 // The load-bearing test. Dodging, jumping and flying stack as levels rise; a
 // level where some creature can never be hit is unwinnable and nothing above
 // would reveal it.
-function canKillEvery(levelNumber) {
-  const rand = seeded(levelNumber * 7 + 3);
-  const base = createRun(levelNumber, rand);
+function canKillEvery(spec, seed) {
+  const rand = seeded(seed);
+  const base = createRunFromSpec(spec, rand);
   const unreachable = [];
 
   for (const creature of base.creatures) {
@@ -158,9 +161,17 @@ function canKillEvery(levelNumber) {
   return unreachable;
 }
 
-for (let n = 1; n <= TOTAL_LEVELS; n++) {
-  test(`level ${n}: every creature can actually be hit`, () => {
-    const unreachable = canKillEvery(n);
-    assert.deepEqual(unreachable, [], `level ${n} has unhittable creatures: ${unreachable.join('; ')}`);
+// Both level sets are checked, whichever mode is active, so neither can rot.
+for (let n = 1; n <= CAMPAIGN_LEVELS; n++) {
+  test(`campaign level ${n}: every creature can actually be hit`, () => {
+    const unreachable = canKillEvery(campaignSpec(n), n * 7 + 3);
+    assert.deepEqual(unreachable, [], `campaign ${n} has unhittable creatures: ${unreachable.join('; ')}`);
+  });
+}
+
+for (let n = 1; n <= SAMPLER_LEVELS; n++) {
+  test(`sampler level ${n}: every creature can actually be hit`, () => {
+    const unreachable = canKillEvery(samplerSpec(n), n * 13 + 101);
+    assert.deepEqual(unreachable, [], `sampler ${n} has unhittable creatures: ${unreachable.join('; ')}`);
   });
 }
