@@ -1,172 +1,120 @@
 # Cat-a-pult — Status
 
-**Last updated:** 2026-07-18
+**Last updated:** 2026-07-19
 
-A single-player landscape PWA for Android. You pull back a slingshot and fling
-a rock at cats and T-rexes roaming an arena. Personal project, built from
-scratch, no backend, no audio.
+A single-player landscape PWA for Android. From an elevated vantage you pull
+back a slingshot and fling a rock across a distance at cats, T-rexes and five
+mashup creatures roaming the field. Personal project, from scratch, no backend,
+no audio. Built as a v2 "campaign" (see the campaign spec) on top of the
+original arena game.
 
 ## What it is now
 
-- **Pseudo-3D, fixed forward view.** You look at an arena wall (a painted
-  backdrop, the holes score nothing). Creatures roam the sand in front of it.
-  The rock flies *into the screen* and shrinks with distance.
-- **Drag to aim, Angry Birds style.** Pull back, let go. Drag direction sets
-  aim, drag length sets power, and there is **no timer**. A drag too short to
-  be a shot cancels instead of firing a dud.
-- **Targets:** cat 20 points, T-rex 50. They wander on the sand, and per level
-  gain dodging (ramps from level 1) and jumping (level 2+). **No flying** — all
-  creatures stay on the ground. Jumping is a random per-second hop chance that
-  climbs with the level, so some creatures walk while others hop, and the whole
-  arena gets jumpier and less predictable the higher you go.
-- **20 levels** generated from a formula in `levels.js`. Clear every creature
-  before the rocks run out. Failing just restarts the level: no lives, no game
-  over. Progress and best scores persist in localStorage.
+- **Elevated pseudo-3D view.** You look down across a deep field toward a stone
+  wall backdrop (its holes score nothing). Creatures roam the ground; the rock
+  flies *into the screen* and shrinks with distance so you can read how far each
+  creature is. Camera: `EYE_Y=620`, `HORIZON_FRACTION=0.26`; field depth
+  `NEAR_Z=460`..`WALL_Z=1500`.
+- **Drag to aim, Angry Birds style.** Sling sits at the bottom. Drag direction
+  sets aim, drag length sets power, no timer. A too-short drag cancels. Original
+  "coupled" aim (`SLING_Y=70`, `MIN_ELEVATION=-0.05`, `MAX_ELEVATION=0.85`).
+- **Distance scoring:** a hit = base points × a multiplier that climbs 1.0 near
+  → 2.5 far (`scoring.js`). Cat 20/35/45, T-rex 50/85/115 at near/mid/far.
+- **Seven creatures**, all same behaviour (wander, random hop, dodge), differ in
+  size/speed/points: cat, trex, catrex, frogrex, bunnyrex, pigrex, ducktrex. The
+  five mashups share one vector "dino body" with a swapped head. **No flying.**
+- **Harder as you climb:** more creatures, faster (`speedMult` up to 1.9×) and
+  dodgier/jumpier. No hit-points — landing the hit is the whole challenge.
+- **CURRENTLY IN SAMPLER MODE** (`SAMPLER_MODE = true` in `constants.js`): a
+  **5-level** test build that shows all 7 creatures by level 5 with difficulty
+  ramping to full — so the whole game can be play-tested fast. Flip to `false`
+  for the real **50-level** campaign. `levels.js` has both generators
+  (`samplerSpec`, `campaignSpec`); tests cover both.
 
 ## Architecture (all in `src/`)
 
-Pure logic is split from rendering and unit tested in Node with no browser.
+Pure logic split from rendering, unit tested in Node with no browser.
 
-- `constants.js` — all tuning and arena geometry. Change feel here.
-- `ballistics.js` — 3D projectile maths. Pure.
-- `project.js` — the perspective projection (world → screen). Pure.
-- `aim.js` — drag vector → heading/elevation/power. Pure. Shared by the ghost
-  arc and the real shot so the preview cannot lie.
-- `creatures.js` — cats and T-rexes: spawn, wander, jump, fly, dodge, and the
-  collision maths (`centreOf`, `hitsSwept`, `firstHitSwept`).
-- `levels.js` — the 20-level difficulty curve, as data from a formula.
-- `game.js` — the rules. Returns new state, never mutates.
-- `render.js` — all drawing. Reads state, never writes it.
-- `input.js` — pointer drag capture only.
-- `storage.js` — progress + best scores, with safe fallback.
-- `main.js` — boot, loop, wiring.
+- `constants.js` — all tuning, geometry, creature stats, mode switch. Change feel here.
+- `ballistics.js` / `project.js` / `aim.js` — pure maths (trajectory, world→screen, drag→aim).
+- `creatures.js` — the 7 kinds (`KIND`): spawn, wander, jump, dodge, collision
+  (`centreOf`, `hitsSwept`, `firstHitSwept`). Flying code is present but dormant.
+- `scoring.js` — distance multiplier + `hitScore`. Pure.
+- `levels.js` — `campaignSpec` (50) and `samplerSpec` (5) from one builder; `levelSpec` picks by mode.
+- `game.js` — rules; returns new state. `createRun` / `createRunFromSpec`.
+- `render.js` — all drawing. `storage.js` — save. `main.js` — boot/loop/wiring. `input.js` — drag capture.
 
-**Two invariants that keep it correct:**
-- The arena is a **wedge, not a box**: a rock's reach at depth z is
-  `tan(MAX_HEADING) * z`, so creatures must spawn/wander/dodge inside that
-  cone (`xLimitAt(z)`) or they are visible but unhittable. Tests prove every
-  creature on all 20 levels is killable.
-- Collision is **swept** along the rock's whole path per frame, not point
-  sampled — a fast rock would otherwise step clean over an animal.
+**Invariants:** the arena is a **wedge** (`xLimitAt(z)`) so creatures must live
+where aim can reach — tests prove every creature on all 50 campaign levels AND
+all 5 sampler levels is killable. Collision is **swept**, never point-sampled.
 
 ## Tests
 
-118 tests, all passing. Node's built-in runner, zero dependencies.
+164 tests, all passing. Node's built-in runner, zero deps.
 
 ```bash
-npm test        # run everything
+npm test        # everything (the 55 reachability sweeps make it ~1-2 min)
 npm run serve   # static server on http://localhost:5173
 ```
 
-## Done this session (2026-07-18)
+## v2 campaign — progress
 
-- Rebuilt the game twice after reference footage showed the real thing: it is
-  slingshot-into-an-arena, not side-on trajectory. See the spec history.
-- Switched crosshair-and-charge controls (broken: taps died, and touch could
-  not aim before charging) to **drag-to-aim with no timer**.
-- Added cats + T-rexes as dodging/jumping/flying targets across 20 levels.
-- Fixed "rock passes through animals": swept collision, one shared `centreOf`
-  hitbox, and depth cues (landing ring on the sand + a rock shadow).
-- Added a **blood splat at the point of impact that lands before the score**.
-- Replaced emoji creatures with **vector-drawn** ones (fix for "glassy").
-- **Lowered the flyer band to y=95..210** so flyers sit in the forgiving
-  middle of the arc instead of only at its razor-thin apex.
-- **+10% rocks** per level.
-- Added project-scoped `/handover` and `/resume-catapult` commands (in
-  `.claude/commands/`) and this STATUS doc, so sessions hand off cleanly.
+Full design: `docs/superpowers/specs/2026-07-18-cat-a-pult-campaign.md`.
+Approved decisions: **phased, play-test between each**; toughness is **speed +
+dodge only, no HP**; **each weapon plays differently**; the 4 extra creatures
+were mine to invent (player approved all 7).
 
-## The one big open item: FEEL IS UNVERIFIED
+Phases: 1 POV ✅ · 2 distance scoring ✅ · 3 fifty levels + 7 creatures +
+speed/dodge scaling ✅ · **4 five weapons (NEXT)** · 5 scenery themes every 5 levels.
 
-Every bit of logic, geometry, and rendering has been checked by importing the
-real modules and reading pixels/state back. But **nobody has actually played
-it.** The in-app browser pane will not render in these sessions, and Chrome
-blocks localhost by extension permission, so I cannot drive it live.
+**Phase 4 plan (next):** catapult (L1–15) · crossbow (16–25, fast/flat) ·
+spear-crossbow (26–35, pierce) · spear (36–45, pierce) · bazooka (46–50, splash).
+In sampler mode, map **one weapon per level** so all five are seen in 5 levels.
+Pierce = hit all along the swept path (extend `firstHitSwept`); splash = kill all
+within a radius of impact. Weapon data → new `weapons.js`, chosen by level.
 
-The player (Deepanshu) plays on an Android phone and reports back. Recently
-changed and most in need of a real play-test:
-- Do the **vector creatures** read as solid (the "glassy" complaint)?
-- Does the **random jumping** feel good? Is level 2 gentle enough and level 20
-  chaotic-but-fair? (Tune `MAX_JUMP_CHANCE` in `constants.js`.)
-- Does **drag aiming** feel right, and is the **landing ring** a useful depth
-  cue or clutter?
+## Done this session (2026-07-19)
 
-Note: flying was **removed** this session (all creatures are ground-based now).
-The flyer engine code in `creatures.js` is kept but dormant — no level spawns a
-flyer — so the design spec's "Flying (level 4+)" section is now out of date.
+- **Removed flying**; made jumping a **random per-second hop chance** that ramps
+  with level (some walk, some hop).
+- Phase 1 **POV**: elevated vantage + deep field. Tried and **reverted** two shot
+  detours (high downward launch; steep lobs via decoupled aim) — player preferred
+  the original shot feel. Lesson: steeper-than-~0.10 `MIN_ELEVATION` needs the
+  decoupled aim (side targets otherwise require flat shots), which the player disliked.
+- Phase 2 **distance scoring** (`scoring.js`).
+- Phase 3 **50 levels, 7 creatures, speed/dodge scaling** (roster from a `SCHEDULE`).
+- **5-level SAMPLER mode** so the player can test everything without grinding 50.
+- **Fixed a blank-screen crash:** a save whose `unlockedLevel` exceeded the
+  build's level count made `createRun` return null and the loop crashed. `main.js`
+  now clamps the start level to `TOTAL_LEVELS`; `recordClear` never lowers progress.
+
+## The open item: FEEL / LOOKS ARE UNVERIFIED
+
+Logic/geometry/render are checked by importing real modules and reading
+state/pixels back. The player (Deepanshu) play-tests on an Android phone. Most
+in need of eyes now:
+- Do the **5 new creatures read clearly** (send a screenshot if any looks off — I fix the drawing)?
+- Does the **difficulty ramp** feel right across the sampler's 5 levels?
 
 ## Gotchas for the next session
 
-- **Hard-refresh (Ctrl+Shift+R) after any change.** The service worker is
-  network-first now, but an old cache-first worker may still be registered
-  from earlier; unregister it if changes do not appear.
-- The static dev server (`npm run serve`) sometimes dies between turns.
-  Restart it before verifying.
-- Windows line-ending warnings on commit are harmless.
-- No audio in v1 by decision. Blood is intentionally light.
-
-## v2 CAMPAIGN — in progress
-
-We are rebuilding this into an open-landscape campaign. Full design in
-`docs/superpowers/specs/2026-07-18-cat-a-pult-campaign.md` (supersedes the
-close-up arena spec). Approved decisions: build **phased with a play-test
-between each phase**; toughness is **speed + dodge only, no hit-points**;
-**each weapon plays differently**; the 4 extra creatures are mine to invent.
-
-**SAMPLER MODE is currently ON** (`SAMPLER_MODE = true` in `constants.js`). This
-is a 5-level test build so the player can see every creature (and, once built,
-every weapon) fast instead of grinding 50 levels. `levels.js` has two
-generators — `campaignSpec` (50) and `samplerSpec` (5) — and tests cover both
-regardless of which is active. Flip `SAMPLER_MODE` to false for the real
-campaign. When weapons land (Phase 4), map one weapon per sampler level so all
-five are seen in the 5-level build.
-
-Phases: 1 POV ✅ · 2 distance scoring ✅ · 3 fifty levels + 7 creatures +
-speed/dodge scaling ✅ · 4 five weapons (catapult/crossbow/spear-crossbow/spear/
-bazooka, with pierce + splash) · 5 scenery themes every 5 levels.
-
-**Phase 3 done — needs a play-test of the new creatures' looks.** Now 50 levels
-(`TOTAL_LEVELS`). Seven kinds (`creatures.js` KIND + `constants.js` sizes/points):
-cat, trex, catrex, frogrex, bunnyrex, pigrex, ducktrex — the five mashups share
-one vector "dino body" in `render.js` with a swapped head, so they read as a
-family. `levels.js` now builds a **roster** from a `SCHEDULE` (each kind enters
-on a set level, then +1 every `GROWTH_EVERY`=16). Creatures speed up with level
-(`speedMult`, 1→`MAX_SPEED_MULT`=1.9) — that plus dodge/jump is all of "harder
-to kill" (no HP). Curve at a glance: L1 = 3 cats; L50 = 21 creatures of all 7
-kinds, 37 rocks, dodge .62 / jump .60 / speed 1.9×. All 50 levels proven
-clearable (reachability tests) and the render path is crash-tested for every
-kind, but the actual **appearance of the 5 new creatures is unverified** —
-that's the play-test ask.
-
-**Phase 2 (distance scoring) done.** New pure module `src/scoring.js`:
-`distanceMultiplier(z)` climbs 1.0 at `NEAR_Z` → 2.5 at `WALL_Z` (`SCORE_NEAR_MULT`
-/`SCORE_FAR_MULT` in constants), and `hitScore(base, z)` = base × multiplier
-rounded to a tidy 5. Wired into `game.js` (score + the floating "+N" both use it).
-In practice: cat 20/35/45 and T-rex 50/85/115 at near/mid/far. Fully unit-tested.
-Possible polish if the player wants it: a visible "×2" cue on far hits so the
-mechanic is legible (right now only the bigger +N communicates it).
-
-**Phase 1 (POV) is done and needs a play-test.** Raised the vantage and pushed
-creatures into the distance (`EYE_Y=620`, `HORIZON_FRACTION=0.26`, `NEAR_Z=460`,
-`WALL_Z=1500`). The sling stays at the **bottom** and shots use the **original
-aim** (`SLING_Y=70`, `MIN_ELEVATION=-0.05`, `MAX_ELEVATION=0.85`, power from
-total drag length).
-
-Two detours were tried and **reverted** at the player's request: (1) a high
-launch shooting DOWN from a perch, and (2) steep lob shots via a decoupled aim
-(sideways=heading, down=power). Both worked and passed tests; the player just
-preferred the original shot feel. Lesson if steepness comes up again: with the
-coupled aim the steepest reachable `MIN_ELEVATION` is only ~0.10 (side targets
-need flat shots) — going steeper *requires* decoupling power from sideways pull,
-which the player did not like. Camera is kept steep per the player's choice.
-
-All reachability tests pass. Tuning knobs: the four camera ones, `SLING_Y`, the
-two elevation limits, `MAX_LAUNCH_SPEED`.
+- **The preview pane will NOT render live** — the animation loop (rAF) is paused
+  when the preview isn't truly on screen, and screenshots time out. Verify by
+  importing the real modules and reading state/pixels back (e.g. build a run,
+  call `drawScene` on a real canvas, sample pixels), not by screenshotting.
+- **Hard-refresh / clear site data after any change** — service worker (now
+  `catapult-v7`, network-first) plus an old cache-first worker can pin stale
+  files. On phone: Chrome → site settings → Clear & reset.
+- **Never do `createRun(save.unlockedLevel)` raw** — always clamp to
+  `TOTAL_LEVELS` (a longer-build save must not break a shorter build).
+- The dev server (`npm run serve`) sometimes dies between turns; restart it.
+- Windows line-ending (LF→CRLF) warnings on commit are harmless.
+- No audio, no HP, no flying by decision.
 
 ## Next steps
 
-1. **Play-test Phase 1 on the phone:** does the raised, shoot-across-distance
-   view feel good? Can you read how far each creature is? Report back; tune the
-   four camera knobs above from that.
-2. Then Phase 2 (distance-based scoring), and on down the phase list.
-3. Old v1 to-dos still open: the "glassy" complaint was a stale phone cache, not
-   the code (creatures are solid vectors); confirm once the cache is cleared.
+1. Player play-tests the **5 sampler levels** on the phone; reports how the
+   creatures look and how the ramp feels. Tune from that.
+2. **Phase 4: weapons** (plan above) — map one weapon per sampler level.
+3. Then Phase 5 (scenery themes). Flip `SAMPLER_MODE=false` when ready to ship
+   the full campaign.
