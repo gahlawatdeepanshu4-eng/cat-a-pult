@@ -116,10 +116,17 @@ Phases: 1 POV ✅ · 2 distance scoring · 3 fifty levels + 7 creatures +
 speed/dodge scaling · 4 five weapons (catapult/crossbow/spear-crossbow/spear/
 bazooka, with pierce + splash) · 5 scenery themes every 5 levels.
 
-**Phase 1 (POV) is done and needs a play-test.** Raised the vantage and pushed
-creatures into the distance (`EYE_Y`, `HORIZON_FRACTION`, `NEAR_Z`, `WALL_Z` in
-`constants.js` — these four are the tuning knobs). Logic verified (all
-reachability tests pass); the *feel* of the new camera is unverified.
+**Phase 1 (POV + high launch) is done and needs a play-test.** Raised the
+vantage and pushed creatures into the distance (`EYE_Y`, `HORIZON_FRACTION`,
+`NEAR_Z`, `WALL_Z`), then made you **fire from up high shooting DOWN**: launch
+point lifted to `SLING_Y=520` (well above the ground) and the aim range opened
+downward (`MIN_ELEVATION=-0.85`, `MAX_ELEVATION=0.5`). A light pull drops a rock
+steeply near; a big pull hurls it far. The sling graphic now sits at the
+projected launch point (up high), not the screen bottom. All reachability tests
+pass. Known feel risk to watch: the useful drag range is compressed and big
+pulls overshoot the field — if far shots feel twitchy, lower `MAX_LAUNCH_SPEED`
+(currently 1250). Tuning knobs: the four camera ones + `SLING_Y`, the two
+elevation limits, and `MAX_LAUNCH_SPEED`.
 
 ## Next steps
 

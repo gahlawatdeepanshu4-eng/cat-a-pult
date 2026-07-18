@@ -1,6 +1,6 @@
 import { project } from './project.js';
 import { radiusOf, centreOf, KIND } from './creatures.js';
-import { WALL_Z, ARENA_HALF_WIDTH, ROCK_RADIUS } from './constants.js';
+import { WALL_Z, ARENA_HALF_WIDTH, ROCK_RADIUS, SLING_Y } from './constants.js';
 
 // Decoration only. The holes score nothing now; they are what the arena wall
 // looks like.
@@ -278,41 +278,49 @@ function drawGhost(ctx, ghost, view) {
   ctx.stroke();
 }
 
-// The band the player is pulling: a straight line from the sling to the
-// finger, so the gesture reads as a slingshot rather than a mystery.
+// The slingshot sits at the launch point — up high, since you fire from a
+// perch — not at the bottom of the screen. It is drawn where the rock actually
+// leaves the world (project of the launch point), so the shot reads as coming
+// from up there. A band runs from the fork to the finger, showing the pull.
 function drawSling(ctx, view, drag, loaded) {
-  const cx = view.width / 2;
-  const base = view.height * 1.04;
-  const span = view.height * 0.15;
-  const armTop = view.height * 0.76;
-  const pouch = drag ? { x: drag.x, y: drag.y } : { x: cx, y: armTop + view.height * 0.04 };
+  const a = project({ x: 0, y: SLING_Y, z: 0 }, view); // launch point, up high
+  const span = view.height * 0.045;   // half-width of the fork
+  const grip = view.height * 0.05;    // how far the handle drops below the fork
+  const forkY = a.y - view.height * 0.02;
+  const pouch = drag ? { x: drag.x, y: drag.y } : { x: a.x, y: a.y };
 
-  ctx.strokeStyle = '#3a2b1c';
-  ctx.lineWidth = view.height * 0.012;
+  // Handle + two fork prongs of a hand-held slingshot.
+  ctx.strokeStyle = '#b07d4a';
+  ctx.lineWidth = view.height * 0.02;
   ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y + grip);
+  ctx.lineTo(a.x, a.y);
+  ctx.stroke();
   for (const dir of [-1, 1]) {
     ctx.beginPath();
-    ctx.moveTo(cx + dir * span, armTop);
-    ctx.lineTo(pouch.x, pouch.y);
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(a.x + dir * span, forkY);
     ctx.stroke();
   }
 
-  ctx.strokeStyle = '#b07d4a';
-  ctx.lineWidth = view.height * 0.034;
+  // Bands from each prong tip to the pouch (the finger while dragging).
+  ctx.strokeStyle = '#3a2b1c';
+  ctx.lineWidth = view.height * 0.008;
   for (const dir of [-1, 1]) {
     ctx.beginPath();
-    ctx.moveTo(cx, base);
-    ctx.lineTo(cx + dir * span, armTop);
+    ctx.moveTo(a.x + dir * span, forkY);
+    ctx.lineTo(pouch.x, pouch.y);
     ctx.stroke();
   }
 
   if (loaded) {
     ctx.fillStyle = '#5b5348';
     ctx.beginPath();
-    ctx.arc(pouch.x, pouch.y, view.height * 0.028, 0, Math.PI * 2);
+    ctx.arc(pouch.x, pouch.y, view.height * 0.022, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = '#2f2a22';
-    ctx.lineWidth = view.height * 0.006;
+    ctx.lineWidth = view.height * 0.005;
     ctx.stroke();
   }
 }

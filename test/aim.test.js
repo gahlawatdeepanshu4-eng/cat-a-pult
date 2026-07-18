@@ -50,12 +50,19 @@ test('heading is clamped so you cannot fire behind yourself', () => {
 });
 
 test('elevation is clamped to its limits', () => {
-  assert.equal(aimFromDrag(0, full * 9, H).elevation, MAX_ELEVATION);
+  // A lerp to the endpoint lands a rounding step short of it, so compare with a
+  // tolerance rather than exact equality.
+  const { elevation } = aimFromDrag(0, full * 9, H);
+  assert.ok(Math.abs(elevation - MAX_ELEVATION) < 1e-9, `${elevation} should reach ${MAX_ELEVATION}`);
+  assert.ok(elevation <= MAX_ELEVATION + 1e-9, 'never past the top of the range');
 });
 
-test('dragging up does not fire the rock into the ground', () => {
+// Firing from a height, the steepest-down aim is deliberate: it drops a rock
+// on a creature right below the perch.
+test('dragging up aims the shot steeply downward', () => {
   const shot = aimFromDrag(0, -full, H);
   assert.equal(shot.elevation, MIN_ELEVATION);
+  assert.ok(MIN_ELEVATION < 0, 'the bottom of the aim range points down');
 });
 
 test('a diagonal pull sets heading and elevation together', () => {
