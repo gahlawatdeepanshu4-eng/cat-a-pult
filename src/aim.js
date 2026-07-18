@@ -19,15 +19,20 @@ export function aimFromDrag(dx, dy, screenHeight) {
   if (dist < MIN_DRAG_PX) return null;
 
   const maxDrag = screenHeight * MAX_DRAG_FRACTION;
-  const power = Math.min(dist / maxDrag, 1);
 
-  // Fire opposite the pull.
-  const nx = Math.max(-1, Math.min(1, -dx / maxDrag));
+  // The two axes of the pull are independent. Sideways aims left/right; it does
+  // NOT feed power. That matters: with power tied to total drag length, aiming
+  // at a side target forced a hard, flat shot, which made close-and-to-the-side
+  // creatures reachable only by a near-flat line — so steep lobs could never
+  // hit them. Splitting the axes lets every shot be a steep lob.
+  const nx = Math.max(-1, Math.min(1, -dx / maxDrag)); // fire opposite the pull
+  // The downward pull sets both how hard and how steep: a longer pull is a
+  // stronger, higher-arcing lob.
   const ny = Math.max(0, Math.min(1, dy / maxDrag));
 
   return {
     heading: nx * MAX_HEADING,
     elevation: MIN_ELEVATION + ny * (MAX_ELEVATION - MIN_ELEVATION),
-    power,
+    power: ny,
   };
 }

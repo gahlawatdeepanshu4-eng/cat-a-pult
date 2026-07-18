@@ -7,10 +7,11 @@
 export const GRAVITY = -380;
 export const MAX_DT = 1 / 30;
 
-// Launch. You fire from up high (a perch well above the ground the creatures
-// roam), so SLING_Y sits far above GROUND_Y and shots rain DOWN onto the field.
+// Launch. The sling sits low in the foreground (bottom of the screen). Shots
+// leave it at a steep upward angle and arc over onto the creatures out on the
+// field — see MIN_ELEVATION/MAX_ELEVATION below.
 export const GROUND_Y = 0;
-export const SLING_Y = 520;
+export const SLING_Y = 70;
 export const MIN_LAUNCH_SPEED = 360;
 export const MAX_LAUNCH_SPEED = 1250;
 
@@ -24,12 +25,12 @@ export const MIN_DRAG_PX = 12;
 // tan(heading) * WALL_Z, so heading and wall depth together decide how wide
 // the arena can usefully be.
 export const MAX_HEADING = 0.75;
-// Firing from a height, aim spans steeply DOWN (for near creatures right below
-// the perch) up to a modest lob (for far ones). A light pull drops a rock close
-// and steep; a big pull hurls it far and flat. No huge upward lobs are needed
-// anymore, so the top of the range is lower than the old ground-level game.
-export const MIN_ELEVATION = -0.85;
-export const MAX_ELEVATION = 0.5;
+// Shots are steep lobs — even the shallowest leaves the sling at ~29 degrees and
+// arcs high onto the field, which suits looking down at it. This is only
+// possible because aim.js keeps the sideways pull out of power; otherwise side
+// targets would demand a flat shot. Raise for steeper, lower for flatter.
+export const MIN_ELEVATION = 0.5;
+export const MAX_ELEVATION = 1.0;
 
 // Arena. You fire across a distance now, so the play space is deep: creatures
 // start well back (NEAR_Z) and range almost to the backdrop (WALL_Z). The wide

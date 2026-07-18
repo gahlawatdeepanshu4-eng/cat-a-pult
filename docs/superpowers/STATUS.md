@@ -116,17 +116,22 @@ Phases: 1 POV ✅ · 2 distance scoring · 3 fifty levels + 7 creatures +
 speed/dodge scaling · 4 five weapons (catapult/crossbow/spear-crossbow/spear/
 bazooka, with pierce + splash) · 5 scenery themes every 5 levels.
 
-**Phase 1 (POV + high launch) is done and needs a play-test.** Raised the
+**Phase 1 (POV + steep lob shots) is done and needs a play-test.** Raised the
 vantage and pushed creatures into the distance (`EYE_Y`, `HORIZON_FRACTION`,
-`NEAR_Z`, `WALL_Z`), then made you **fire from up high shooting DOWN**: launch
-point lifted to `SLING_Y=520` (well above the ground) and the aim range opened
-downward (`MIN_ELEVATION=-0.85`, `MAX_ELEVATION=0.5`). A light pull drops a rock
-steeply near; a big pull hurls it far. The sling graphic now sits at the
-projected launch point (up high), not the screen bottom. All reachability tests
-pass. Known feel risk to watch: the useful drag range is compressed and big
-pulls overshoot the field — if far shots feel twitchy, lower `MAX_LAUNCH_SPEED`
-(currently 1250). Tuning knobs: the four camera ones + `SLING_Y`, the two
-elevation limits, and `MAX_LAUNCH_SPEED`.
+`NEAR_Z`, `WALL_Z`). The sling stays at the **bottom** of the screen (a brief
+detour that lifted it up high was reverted — the player wanted it low). Shots
+are now **steep lobs** (`MIN_ELEVATION=0.5`, `MAX_ELEVATION=1.0`, ~29–57°) that
+arc high and drop onto the field.
+
+Key enabler: `aim.js` now **decouples the drag axes** — sideways pull = aim
+left/right, downward pull = power + steepness. Power no longer follows total
+drag length. Without this, aiming at a side target forced a flat, fast shot, so
+close-and-to-the-side creatures could only be hit near-flat and steep-only aim
+made them unreachable (proven: with the old coupled aim the steepest safe
+`MIN_ELEVATION` was ~0.10). Decoupled, everything stays reachable at 0.5+.
+
+All reachability tests pass. Tuning knobs: the four camera ones, `SLING_Y`, the
+two elevation limits, `MAX_LAUNCH_SPEED`.
 
 ## Next steps
 

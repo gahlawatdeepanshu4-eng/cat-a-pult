@@ -57,12 +57,20 @@ test('elevation is clamped to its limits', () => {
   assert.ok(elevation <= MAX_ELEVATION + 1e-9, 'never past the top of the range');
 });
 
-// Firing from a height, the steepest-down aim is deliberate: it drops a rock
-// on a creature right below the perch.
-test('dragging up aims the shot steeply downward', () => {
+test('dragging up does not fire the rock into the ground', () => {
   const shot = aimFromDrag(0, -full, H);
   assert.equal(shot.elevation, MIN_ELEVATION);
-  assert.ok(MIN_ELEVATION < 0, 'the bottom of the aim range points down');
+  assert.ok(MIN_ELEVATION > 0, 'even the shallowest shot leaves the ground');
+});
+
+// Power is the downward pull only. Sideways aim must not add power, or aiming
+// at a side target would force a hard, flat shot and steep lobs could never
+// reach close-and-to-the-side creatures.
+test('aiming sideways changes direction, not power', () => {
+  const straight = aimFromDrag(0, full * 0.5, H);
+  const sideways = aimFromDrag(-full * 0.8, full * 0.5, H);
+  assert.equal(sideways.power, straight.power);
+  assert.ok(sideways.heading > straight.heading, 'the sideways pull did steer it');
 });
 
 test('a diagonal pull sets heading and elevation together', () => {

@@ -57,14 +57,14 @@ test('a shot always terminates rather than flying forever', () => {
 // Park a single, still creature dead ahead where a real drag is known to put
 // the rock, then take that shot. Uses the actual aim path rather than a
 // hand-made velocity, so it cannot pass while the real controls are broken.
-const STRAIGHT_DRAG = { dx: 0, dy: 60 }; // lands around z=595, dead centre
+const STRAIGHT_DRAG = { dx: 0, dy: 70 }; // lands around z=1151, dead centre
 
 function killOne(kind) {
   const rand = seeded();
   const base = createRun(1, rand);
   const target = {
     ...base.creatures[0],
-    kind, flying: false, x: 0, y: 0, z: 560,
+    kind, flying: false, x: 0, y: 0, z: 1151,
     alive: true, speed: 0, dodgedThisShot: false,
   };
   const run = {
