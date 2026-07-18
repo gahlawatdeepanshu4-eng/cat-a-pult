@@ -10,15 +10,20 @@ import { SLING_Y, GROUND_Y, WALL_Z, TOTAL_LEVELS } from './constants.js';
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
+// Clamp to the current build's range: a save from the 50-level campaign must
+// not point past the end of the 5-level sampler (createRun would return null
+// and the loop would crash on a missing level).
+const clampLevel = (n) => Math.min(Math.max(1, n), TOTAL_LEVELS);
+
 let save = loadSave();
-let level = save.unlockedLevel;
-let run = createRun(level);
+let level = clampLevel(save.unlockedLevel);
+let run = createRun(level) ?? createRun(1);
 let screen = 'menu'; // 'menu' | 'play' | 'cleared' | 'failed' | 'done'
 let pop = null;
 
 function startLevel(n) {
-  level = n;
-  run = createRun(n);
+  level = clampLevel(n);
+  run = createRun(level);
   screen = 'play';
   pop = null;
 }

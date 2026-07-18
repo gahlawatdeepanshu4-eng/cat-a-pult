@@ -48,7 +48,10 @@ export function recordClear(save, level, score) {
   const key = String(level);
   return {
     ...save,
-    unlockedLevel: Math.min(Math.max(save.unlockedLevel, level + 1), TOTAL_LEVELS),
+    // Unlock the next level (capped at this build's last), but never lower an
+    // already-higher unlock — so clearing a sampler level cannot shrink the
+    // progress of a save made in the longer campaign.
+    unlockedLevel: Math.max(save.unlockedLevel, Math.min(level + 1, TOTAL_LEVELS)),
     bestScores: { ...save.bestScores, [key]: Math.max(save.bestScores[key] ?? 0, score) },
   };
 }

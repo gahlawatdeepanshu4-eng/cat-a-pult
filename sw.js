@@ -1,5 +1,5 @@
 // Bump CACHE when any precached file changes.
-const CACHE = 'catapult-v6';
+const CACHE = 'catapult-v7';
 const ASSETS = [
   './',
   './index.html',
