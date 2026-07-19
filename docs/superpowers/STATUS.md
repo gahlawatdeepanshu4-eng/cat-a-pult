@@ -114,6 +114,16 @@ jungle, sunset mesa). In sampler mode, show five distinct themes across L1–5.
   weapon-hopping is trivial. `input.js` now also reports the tap's absolute x.
 - **Service worker → `catapult-v8`**, and `src/weapons.js` added to its precache
   (it was missing, which would break the game offline).
+- **Per-weapon visuals (render-only).** The held weapon is now drawn in the view
+  and swaps per level: catapult keeps the slingshot; crossbow / spear-crossbow /
+  spear / bazooka are first-person held weapons pointing up toward the aim, each
+  with a gripping **hand** (`drawHand`). A short **throw/recoil** plays on release
+  (`launchAnim` in `main.js`, `launch` 1→0 lunges the weapon forward). The
+  **projectile now matches the weapon** (`drawProjectile`: rock / bolt / spear /
+  rocket), used both in flight and as the loaded round. SW bumped to
+  `catapult-v9`. Verified only that all render paths run without error (mock-ctx
+  smoke over all 5 weapons + menu); **appearance is unverified — needs the
+  player's screenshots to refine the art.**
 
 ## Earlier this session (2026-07-19)
 

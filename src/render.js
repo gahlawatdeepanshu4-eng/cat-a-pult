@@ -329,10 +329,106 @@ function drawCreatures(ctx, creatures, view) {
   }
 }
 
-function drawRock(ctx, rock, view) {
+// What each weapon actually throws. Purely how it looks — the physics is one
+// swept point regardless.
+const PROJECTILE = {
+  catapult: 'rock',
+  crossbow: 'bolt',
+  spearcrossbow: 'spear',
+  spear: 'spear',
+  bazooka: 'rocket',
+};
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, w, h, r);
+  else ctx.rect(x, y, w, h);
+}
+
+// Draw the weapon's ammo centred at (x, y), sized by r, pointing along `angle`
+// (screen radians). Shapes are drawn pointing along +x, then rotated, so "the
+// pointy end leads". Used both in flight and as the loaded round on the weapon.
+function drawProjectile(ctx, kind, x, y, r, angle) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.lineJoin = 'round';
+  const outline = () => { ctx.strokeStyle = '#2f2a22'; ctx.lineWidth = Math.max(1, r * 0.18); ctx.stroke(); };
+
+  if (kind === 'bolt' || kind === 'spear') {
+    const long = kind === 'spear' ? 3.4 : 2.6;
+    const L = r * long;
+    const w = r * (kind === 'spear' ? 0.34 : 0.4);
+    // Wooden shaft.
+    ctx.fillStyle = '#8a5a2b';
+    roundRectPath(ctx, -L, -w, L * 1.5, w * 2, w);
+    ctx.fill(); outline();
+    // Metal head, a leaf blade for the spear, a sharper point for the bolt.
+    const hl = r * (kind === 'spear' ? 1.5 : 1.1);
+    const hw = r * (kind === 'spear' ? 0.85 : 0.6);
+    ctx.fillStyle = '#cfd3d9';
+    ctx.beginPath();
+    ctx.moveTo(L * 0.5, -hw);
+    ctx.quadraticCurveTo(L * 0.5 + hl, -hw * 0.2, L * 0.5 + hl, 0);
+    ctx.quadraticCurveTo(L * 0.5 + hl, hw * 0.2, L * 0.5, hw);
+    ctx.closePath();
+    ctx.fill(); outline();
+    // Fletching at the tail.
+    ctx.fillStyle = '#c94f3a';
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(-L, 0);
+      ctx.lineTo(-L - r * 0.9, s * w * 2.4);
+      ctx.lineTo(-L + r * 0.7, s * w * 0.6);
+      ctx.closePath();
+      ctx.fill();
+    }
+  } else if (kind === 'rocket') {
+    const L = r * 1.9, w = r * 0.95;
+    // Exhaust flame behind.
+    ctx.fillStyle = 'rgba(255,150,40,0.9)';
+    ctx.beginPath();
+    ctx.moveTo(-L, 0);
+    ctx.lineTo(-L - r * 1.6, -w * 0.5);
+    ctx.lineTo(-L - r * 1.1, 0);
+    ctx.lineTo(-L - r * 1.6, w * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    // Fins.
+    ctx.fillStyle = '#3c4c28';
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(-L * 0.5, s * w);
+      ctx.lineTo(-L, s * w * 1.7);
+      ctx.lineTo(-L * 0.4, s * w * 0.4);
+      ctx.closePath();
+      ctx.fill(); outline();
+    }
+    // Body.
+    ctx.fillStyle = '#5a6b3a';
+    roundRectPath(ctx, -L, -w, L * 1.5, w * 2, w * 0.6);
+    ctx.fill(); outline();
+    // Nose cone.
+    ctx.fillStyle = '#c0392b';
+    ctx.beginPath();
+    ctx.moveTo(L * 0.5, -w);
+    ctx.quadraticCurveTo(L * 1.4, 0, L * 0.5, w);
+    ctx.closePath();
+    ctx.fill(); outline();
+  } else {
+    // Rock: a plain stone.
+    ctx.fillStyle = '#5b5348';
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill(); outline();
+  }
+  ctx.restore();
+}
+
+function drawFlyingProjectile(ctx, rock, view, weaponName) {
   // Shadow first: it is the only thing telling the player how deep into the
-  // arena the rock actually is, which is what makes a near-miss readable
-  // instead of looking like the rock went through the animal.
+  // arena the shot actually is, which is what makes a near-miss readable
+  // instead of looking like it went through the animal.
   const g = project({ x: rock.x, y: 0, z: rock.z }, view);
   const gr = Math.max(2, ROCK_RADIUS * 1.4 * g.scale * view.unit);
   ctx.fillStyle = 'rgba(90, 60, 30, 0.3)';
@@ -342,13 +438,12 @@ function drawRock(ctx, rock, view) {
 
   const p = project(rock, view);
   const r = Math.max(2, ROCK_RADIUS * p.scale * view.unit);
-  ctx.fillStyle = '#5b5348';
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#2f2a22';
-  ctx.lineWidth = Math.max(1, r * 0.2);
-  ctx.stroke();
+  // Point the projectile along the direction it is actually moving on screen.
+  const ahead = project({
+    x: rock.x + rock.vx * 0.05, y: rock.y + rock.vy * 0.05, z: rock.z + rock.vz * 0.05,
+  }, view);
+  const angle = Math.atan2(ahead.y - p.y, ahead.x - p.x);
+  drawProjectile(ctx, PROJECTILE[weaponName] ?? 'rock', p.x, p.y, r, angle);
 }
 
 // Ghost arc plus a landing ring on the sand.
@@ -419,6 +514,161 @@ function drawSling(ctx, view, drag, loaded) {
     ctx.strokeStyle = '#2f2a22';
     ctx.lineWidth = view.height * 0.006;
     ctx.stroke();
+  }
+}
+
+// A gripping fist at (x, y), oriented along `angle` so it wraps the weapon it
+// holds. Skin-toned to read as the player's own hand reaching into the view.
+function drawHand(ctx, x, y, s, angle) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.lineJoin = 'round';
+  const line = () => { ctx.strokeStyle = '#8a5a3a'; ctx.lineWidth = Math.max(1, s * 0.12); ctx.stroke(); };
+  // Wrist/forearm trailing back down out of frame.
+  ctx.fillStyle = '#e3ac82';
+  roundRectPath(ctx, -s * 2.2, -s * 0.7, s * 2.4, s * 1.4, s * 0.5);
+  ctx.fill(); line();
+  // Fist.
+  ctx.fillStyle = '#eab892';
+  ellipse(ctx, 0, 0, s, s * 0.85);
+  ctx.fill(); line();
+  // Knuckles across the top.
+  ctx.fillStyle = '#e3ac82';
+  for (let i = -1; i <= 2; i++) {
+    ellipse(ctx, i * s * 0.42, -s * 0.7, s * 0.24, s * 0.3);
+    ctx.fill();
+  }
+  // Thumb wrapping the front.
+  ctx.fillStyle = '#eab892';
+  ellipse(ctx, s * 0.5, s * 0.5, s * 0.35, s * 0.5);
+  ctx.fill(); line();
+  ctx.restore();
+}
+
+// Shared frame for a first-person held weapon: everything is drawn along +x
+// from the grip toward the muzzle, then rotated to point where the shot goes.
+// Returns the screen-space muzzle point so the loaded round can sit on it.
+function heldWeapon(ctx, view, aimAngle, reach, body) {
+  const grip = { x: view.width / 2, y: view.height * 1.0 };
+  ctx.save();
+  ctx.translate(grip.x, grip.y);
+  ctx.rotate(aimAngle);
+  body(ctx, reach, view.height); // draws along +x, 0..reach
+  ctx.restore();
+  return { x: grip.x + Math.cos(aimAngle) * reach, y: grip.y + Math.sin(aimAngle) * reach, grip };
+}
+
+function woodBarrel(ctx, reach, s, thickness, colour) {
+  ctx.fillStyle = colour;
+  roundRectPath(ctx, 0, -thickness / 2, reach, thickness, thickness * 0.4);
+  ctx.fill();
+  ctx.strokeStyle = '#2f2a22';
+  ctx.lineWidth = Math.max(1, s * 0.006);
+  ctx.stroke();
+}
+
+function drawCrossbow(ctx, view, aimAngle, reach, heavy) {
+  const s = view.height;
+  const muzzle = heldWeapon(ctx, view, aimAngle, reach, (c, R) => {
+    // Stock/rail.
+    woodBarrel(c, R * 0.95, s, s * (heavy ? 0.05 : 0.04), heavy ? '#7a4a24' : '#8a5a2b');
+    // Bow limbs across the front, with a string behind them.
+    const bx = R * 0.72;
+    c.strokeStyle = '#4a4f57';
+    c.lineWidth = s * (heavy ? 0.02 : 0.016);
+    c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(bx, -s * 0.14);
+    c.quadraticCurveTo(bx + s * 0.04, 0, bx, s * 0.14);
+    c.stroke();
+    c.strokeStyle = 'rgba(240,240,240,0.85)';
+    c.lineWidth = Math.max(1, s * 0.004);
+    c.beginPath();
+    c.moveTo(bx, -s * 0.14);
+    c.lineTo(R * 0.2, 0);
+    c.lineTo(bx, s * 0.14);
+    c.stroke();
+  });
+  drawHand(ctx, muzzle.grip.x, muzzle.grip.y, s * 0.05, aimAngle);
+  return muzzle;
+}
+
+function drawSpearThrower(ctx, view, aimAngle, reach) {
+  const s = view.height;
+  const muzzle = heldWeapon(ctx, view, aimAngle, reach, (c, R) => {
+    woodBarrel(c, R, s, s * 0.028, '#9a6a34');
+    // A binding wrap near the grip.
+    c.strokeStyle = '#5a3a1c';
+    c.lineWidth = s * 0.01;
+    for (const dx of [0.12, 0.18, 0.24]) {
+      c.beginPath();
+      c.moveTo(R * dx, -s * 0.02);
+      c.lineTo(R * dx, s * 0.02);
+      c.stroke();
+    }
+  });
+  // The spearhead sits at the muzzle, pointing along the aim.
+  drawProjectile(ctx, 'spear', muzzle.x, muzzle.y, s * 0.02, aimAngle);
+  drawHand(ctx, muzzle.grip.x, muzzle.grip.y, s * 0.055, aimAngle);
+  return muzzle;
+}
+
+function drawBazooka(ctx, view, aimAngle, reach) {
+  const s = view.height;
+  const muzzle = heldWeapon(ctx, view, aimAngle, reach, (c, R) => {
+    // Tube.
+    c.fillStyle = '#556b3a';
+    roundRectPath(c, 0, -s * 0.06, R, s * 0.12, s * 0.03);
+    c.fill();
+    c.strokeStyle = '#2f2a22';
+    c.lineWidth = Math.max(1, s * 0.006);
+    c.stroke();
+    // Wide muzzle ring at the front.
+    c.fillStyle = '#3c4c28';
+    roundRectPath(c, R * 0.86, -s * 0.08, R * 0.12, s * 0.16, s * 0.02);
+    c.fill(); c.stroke();
+    // Rear vent.
+    roundRectPath(c, -R * 0.06, -s * 0.05, R * 0.08, s * 0.1, s * 0.02);
+    c.fill(); c.stroke();
+    // Little top sight.
+    c.fillStyle = '#2f2a22';
+    roundRectPath(c, R * 0.45, -s * 0.1, s * 0.02, s * 0.05, s * 0.005);
+    c.fill();
+  });
+  drawHand(ctx, muzzle.grip.x, muzzle.grip.y, s * 0.06, aimAngle);
+  return muzzle;
+}
+
+// Draw whichever weapon this level uses, held in the view and pointing where
+// the shot will go. `launch` (1→0) briefly lunges it forward on release.
+function drawLauncher(ctx, view, scene) {
+  const name = scene.weaponName ?? 'catapult';
+  // The catapult is a slingshot — its pouch follows the finger, so it keeps its
+  // own drawing rather than the pointed-forward held-weapon frame.
+  if (name === 'catapult') {
+    drawSling(ctx, view, scene.drag, scene.loaded);
+    return;
+  }
+
+  // Point up-screen, tilted by the aim's heading; lunge forward on release.
+  const heading = scene.aim ? scene.aim.heading : 0;
+  const aimAngle = -Math.PI / 2 + heading;
+  const lunge = (scene.launch ?? 0) * view.height * 0.10;
+  const reach = view.height * 0.42 + lunge;
+  const showRound = scene.loaded && (scene.launch ?? 0) < 0.2;
+
+  let muzzle;
+  if (name === 'crossbow') muzzle = drawCrossbow(ctx, view, aimAngle, reach, false);
+  else if (name === 'spearcrossbow') muzzle = drawCrossbow(ctx, view, aimAngle, reach, true);
+  else if (name === 'spear') muzzle = drawSpearThrower(ctx, view, aimAngle, reach);
+  else if (name === 'bazooka') muzzle = drawBazooka(ctx, view, aimAngle, reach);
+
+  // The loaded round sits on the muzzle while aiming (the spear thrower already
+  // draws its own head, so skip it there).
+  if (showRound && muzzle && name !== 'spear') {
+    const r = name === 'bazooka' ? view.height * 0.03 : view.height * 0.02;
+    drawProjectile(ctx, PROJECTILE[name] ?? 'rock', muzzle.x, muzzle.y, r, aimAngle);
   }
 }
 
@@ -616,9 +866,9 @@ export function drawScene(ctx, scene, view) {
   drawWall(ctx, view);
   drawGround(ctx, view);
   drawCreatures(ctx, scene.creatures, view);
-  if (scene.rock) drawRock(ctx, scene.rock, view);
+  if (scene.rock) drawFlyingProjectile(ctx, scene.rock, view, scene.weaponName);
   drawGhost(ctx, scene.ghost, view);
-  drawSling(ctx, view, scene.drag, scene.loaded);
+  drawLauncher(ctx, view, scene);
   drawPower(ctx, scene.power, view);
   drawFloatingPoints(ctx, scene.pop, view);
   drawHud(ctx, scene.hud, view);

@@ -22,6 +22,7 @@ let level = clampLevel(save.unlockedLevel);
 let run = createRun(level) ?? createRun(1);
 let screen = 'menu'; // 'menu' | 'play' | 'cleared' | 'failed' | 'done'
 let pop = null;
+let launchAnim = 0; // 1 right after a shot, decays to 0 — the weapon's throw/recoil
 
 // The start-menu level picker. Only shown for a short build (the sampler), where
 // a row of columns fits and jumping straight to any weapon is the whole point.
@@ -89,6 +90,7 @@ const input = createInput(canvas, {
     const aim = aimFromDrag(dx, dy, canvas.clientHeight);
     if (!aim) return; // too short a drag: a cancel, not a dud shot
     run = fire(run, aim);
+    launchAnim = 1; // kick off the throw/recoil
   },
 });
 
@@ -105,6 +107,8 @@ function resize() {
 function update(dt) {
   // Slow enough that the splat lands, is read, and the score follows it.
   if (pop) pop = pop.life > 0 ? { ...pop, life: pop.life - dt * 0.85 } : null;
+  // The throw/recoil plays out over ~0.25s.
+  if (launchAnim > 0) launchAnim = Math.max(0, launchAnim - dt * 4);
 
   const before = run.phase;
   run = tick(run, dt);
@@ -178,6 +182,9 @@ function frame(now) {
       drag: aiming && d ? { x: d.x * dpr, y: d.y * dpr } : null,
       loaded: aiming,
       power: aim?.power ?? 0,
+      weaponName: run.spec?.weapon ?? 'catapult',
+      aim,
+      launch: launchAnim,
       pop,
       hud: {
         level,
