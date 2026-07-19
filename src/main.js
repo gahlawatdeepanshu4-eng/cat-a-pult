@@ -5,7 +5,8 @@ import { createInput } from './input.js';
 import { aimFromDrag } from './aim.js';
 import { createRun, fire, tick, aliveCount } from './game.js';
 import { loadSave, writeSave, recordClear } from './storage.js';
-import { SLING_Y, GROUND_Y, WALL_Z, TOTAL_LEVELS } from './constants.js';
+import { weaponOf } from './weapons.js';
+import { SLING_Y, GROUND_Y, WALL_Z, GRAVITY, TOTAL_LEVELS } from './constants.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -34,12 +35,12 @@ function startLevel(n) {
 // screen a rock passing in FRONT of an animal looks exactly like a rock going
 // through it, so the player needs a depth cue: line the landing ring up with
 // an animal's shadow and the depths match.
-function ghostArc(aim) {
+function ghostArc(aim, weapon) {
   if (!aim) return null;
-  let b = { x: 0, y: SLING_Y, z: 0, ...launchVelocity(aim.heading, aim.elevation, aim.power) };
+  let b = { x: 0, y: SLING_Y, z: 0, ...launchVelocity(aim.heading, aim.elevation, aim.power, weapon.speedScale) };
   const pts = [];
   for (let i = 0; i < 400; i++) {
-    b = stepBody(b, 1 / 60);
+    b = stepBody(b, 1 / 60, GRAVITY * weapon.gravityScale);
     if (b.y <= GROUND_Y || b.z > WALL_Z) break;
     if (i % 3 === 0) pts.push({ x: b.x, y: b.y, z: b.z });
   }
@@ -139,11 +140,12 @@ function frame(now) {
     const aim = aiming && d
       ? aimFromDrag(d.x - d.startX, d.y - d.startY, canvas.clientHeight)
       : null;
+    const weapon = weaponOf(run.spec.weapon);
 
     drawScene(ctx, {
       creatures: run.creatures,
       rock: run.rock,
-      ghost: ghostArc(aim),
+      ghost: ghostArc(aim, weapon),
       drag: aiming && d ? { x: d.x * dpr, y: d.y * dpr } : null,
       loaded: aiming,
       power: aim?.power ?? 0,
@@ -153,6 +155,7 @@ function frame(now) {
         rocks: run.rocksLeft,
         score: run.score,
         left: aliveCount(run),
+        weapon: weapon.name,
       },
       overlay: overlayLines(),
     }, view);

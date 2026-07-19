@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { campaignSpec, samplerSpec, LEVELS } from '../src/levels.js';
+import { WEAPON } from '../src/weapons.js';
 import {
   FIRST_JUMP_LEVEL, FIRST_TREX_LEVEL, MAX_JUMP_CHANCE, MAX_DODGE_CHANCE,
   MAX_SPEED_MULT, CAMPAIGN_LEVELS, SAMPLER_LEVELS, TOTAL_LEVELS,
@@ -26,6 +27,7 @@ function assertWellFormed(levels, label) {
     assert.ok(l.dodgeChance < 1, `${label} L${l.n}: dodge ${l.dodgeChance} is unwinnable`);
     assert.ok(l.rocks > l.targets, `${label} L${l.n}: ${l.rocks} rocks <= ${l.targets} targets`);
     assert.ok(l.rocks - l.targets >= 3, `${label} L${l.n}: slack only ${l.rocks - l.targets}`);
+    assert.ok(WEAPON[l.weapon], `${label} L${l.n}: unknown weapon ${l.weapon}`);
     assert.equal(l.flyingCats, undefined, `${label} L${l.n}: still has flying fields`);
   }
   for (let i = 1; i < levels.length; i++) {

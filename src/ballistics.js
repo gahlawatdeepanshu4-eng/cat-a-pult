@@ -3,8 +3,10 @@ import { GRAVITY, MAX_DT, MIN_LAUNCH_SPEED, MAX_LAUNCH_SPEED } from './constants
 // heading: left/right angle away from straight ahead (+ is right)
 // elevation: upward angle from level
 // power: 0..1, maps onto the speed range
-export function launchVelocity(heading, elevation, power) {
-  const speed = MIN_LAUNCH_SPEED + power * (MAX_LAUNCH_SPEED - MIN_LAUNCH_SPEED);
+// speedScale: the weapon's multiplier on that speed (1 = the catapult; a
+//   crossbow bolt leaves faster, so for the same aim it flies flatter).
+export function launchVelocity(heading, elevation, power, speedScale = 1) {
+  const speed = (MIN_LAUNCH_SPEED + power * (MAX_LAUNCH_SPEED - MIN_LAUNCH_SPEED)) * speedScale;
   const forward = Math.cos(elevation) * speed;
   return {
     vx: Math.sin(heading) * forward,

@@ -205,3 +205,20 @@ export function firstHitSwept(from, to, creatures) {
 export function firstHit(rock, creatures) {
   return firstHitSwept(rock, rock, creatures);
 }
+
+// Every living creature the swept path touches, not just the nearest. A
+// piercing weapon skewers all of them, so it needs the whole list.
+export function allHitsSwept(from, to, creatures) {
+  return creatures.filter((c) => hitsSwept(from, to, c));
+}
+
+// Every living creature within a blast of a world point. Used by a splash
+// weapon on impact: measured to each creature's centre, but a creature's own
+// radius counts too, so a big animal grazing the blast edge still dies.
+export function withinBlast(point, radius, creatures) {
+  return creatures.filter((c) => {
+    if (!c.alive) return false;
+    const g = centreOf(c);
+    return Math.hypot(point.x - g.x, point.y - g.y, point.z - g.z) <= radius + radiusOf(c);
+  });
+}

@@ -2,6 +2,7 @@ import {
   MAX_DODGE_CHANCE, FIRST_JUMP_LEVEL, FIRST_TREX_LEVEL,
   MAX_JUMP_CHANCE, MAX_SPEED_MULT, CAMPAIGN_LEVELS, SAMPLER_LEVELS, SAMPLER_MODE,
 } from './constants.js';
+import { weaponOf, weaponForCampaign, weaponForSampler } from './weapons.js';
 
 // When each creature first appears in the full campaign, and how many start
 // out. After it appears, a kind gains one more every GROWTH_EVERY levels, so the
@@ -30,13 +31,18 @@ const SAMPLER_ROSTERS = {
 // Turn a roster and a position in the run (n of total) into a full level spec.
 // Difficulty is a formula of how far through you are, so both the 50-level
 // campaign and the 5-level sampler ramp from nothing to full across their span.
-function specFrom(n, total, roster) {
+function specFrom(n, total, roster, weaponName) {
   const t = (n - 1) / (total - 1); // 0 at level 1, 1 at the last level
   const targets = roster.reduce((sum, r) => sum + r.count, 0);
+  // Enough to miss every creature a couple of times, plus 10% breathing room.
+  const baseRocks = Math.ceil((targets + 4 + Math.floor(t * 8)) * 1.1);
   return {
     n,
     roster,
     targets,
+    // Which weapon this level is played with. The reachability test re-proves
+    // every creature is killable with *this* weapon.
+    weapon: weaponName,
     // Never reaches 1. A target that always dodges could never be killed.
     dodgeChance: +(MAX_DODGE_CHANCE * t).toFixed(3),
     // Some creatures walk, some hop; a per-second dice roll that climbs with t.
@@ -44,8 +50,10 @@ function specFrom(n, total, roster) {
     // Everything moves faster as you climb — with dodging, the whole of
     // "harder to kill" (no hit-points).
     speedMult: +(1 + t * (MAX_SPEED_MULT - 1)).toFixed(3),
-    // Enough to miss every creature a couple of times, plus 10% breathing room.
-    rocks: Math.ceil((targets + 4 + Math.floor(t * 8)) * 1.1),
+    // Pierce/splash weapons kill more per shot, so they hand out a little less
+    // ammo — but never so little that the level stops being comfortably
+    // winnable, so a floor of targets + 3 always holds.
+    rocks: Math.max(baseRocks + weaponOf(weaponName).ammoModifier, targets + 3),
   };
 }
 
@@ -59,14 +67,14 @@ export function campaignSpec(n) {
       count: n < from ? 0 : base + Math.floor((n - from) / GROWTH_EVERY),
     }))
     .filter((r) => r.count > 0);
-  return specFrom(n, CAMPAIGN_LEVELS, roster);
+  return specFrom(n, CAMPAIGN_LEVELS, roster, weaponForCampaign(n));
 }
 
 // The short test build: five hand-picked levels covering every kind.
 export function samplerSpec(n) {
   if (n < 1 || n > SAMPLER_LEVELS) return null;
   const roster = SAMPLER_ROSTERS[n].map(([kind, count]) => ({ kind, count }));
-  return specFrom(n, SAMPLER_LEVELS, roster);
+  return specFrom(n, SAMPLER_LEVELS, roster, weaponForSampler(n));
 }
 
 export function levelSpec(n) {

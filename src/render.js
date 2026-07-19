@@ -467,6 +467,11 @@ function drawHud(ctx, hud, view) {
   ctx.font = `700 ${size}px system-ui, sans-serif`;
   ctx.fillStyle = '#e8443a';
   ctx.fillText(`🪨 x ${hud.rocks}`, view.width - pad, pad);
+  if (hud.weapon) {
+    ctx.font = `600 ${size * 0.72}px system-ui, sans-serif`;
+    ctx.fillStyle = '#f2e8cf';
+    ctx.fillText(hud.weapon, view.width - pad, pad + size * 1.2);
+  }
 
   ctx.textAlign = 'center';
   ctx.fillText(`Score: ${hud.score}`, view.width / 2, view.height - pad - size);
@@ -503,8 +508,27 @@ function drawSplat(ctx, pop, view) {
   ctx.globalAlpha = 1;
 }
 
+// A splash weapon's blast: an expanding shockwave ring the size of the real
+// kill radius, so the player can see how wide the explosion reached.
+function drawBlast(ctx, pop, view) {
+  const p = project(pop, view);
+  const grow = Math.min(1, (1 - pop.life) * 5);
+  const r = pop.blast * p.scale * view.unit * grow;
+  if (r < 2) return;
+  ctx.globalAlpha = Math.max(0, Math.min(0.8, pop.life * 1.6));
+  ctx.strokeStyle = '#ffb703';
+  ctx.lineWidth = Math.max(2, r * 0.08);
+  ctx.beginPath();
+  ctx.ellipse(p.x, p.y, r, r * 0.5, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255, 150, 40, 0.18)';
+  ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
 function drawFloatingPoints(ctx, pop, view) {
   if (!pop) return;
+  if (pop.blast) drawBlast(ctx, pop, view);
   drawSplat(ctx, pop, view);
 
   // Hold the number back for a beat so the blood mark is seen first.
