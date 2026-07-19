@@ -66,6 +66,37 @@ export function writeMuted(muted, storage = globalThis.localStorage) {
   }
 }
 
+// Music / SFX toggles from the settings screen, under their own key too (same
+// reasoning as mute). Both default ON. A malformed or missing value degrades to
+// the defaults rather than throwing.
+const AUDIO_KEY = 'catapult.audio';
+
+export function loadAudioPrefs(storage = globalThis.localStorage) {
+  try {
+    const raw = storage?.getItem(AUDIO_KEY);
+    if (!raw) return { music: true, sfx: true };
+    const p = JSON.parse(raw);
+    return { music: p.music !== false, sfx: p.sfx !== false };
+  } catch {
+    return { music: true, sfx: true };
+  }
+}
+
+export function writeAudioPrefs(prefs, storage = globalThis.localStorage) {
+  try {
+    storage?.setItem(AUDIO_KEY, JSON.stringify({ music: prefs.music !== false, sfx: prefs.sfx !== false }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// A brand-new save (level 1, no scores) — the settings screen's "reset
+// progress". Returns the value to persist; it never touches audio prefs.
+export function freshSave() {
+  return defaults();
+}
+
 export function recordClear(save, level, score) {
   const key = String(level);
   return {

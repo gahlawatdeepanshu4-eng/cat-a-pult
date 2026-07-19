@@ -35,13 +35,14 @@ game. **Sound now exists** (WebAudio, generated live — no files), muteable.
   **pierces**), bazooka (slower arced shell, **splash** kills everything within
   a blast radius of impact). Weapon = pure data (`speedScale`, `gravityScale`,
   `pierce`, `blastRadius`, `ammoModifier`); the flight loop reads it.
-- **CURRENTLY IN SAMPLER MODE** (`SAMPLER_MODE = true` in `constants.js`): a
-  **5-level** test build that shows all 7 creatures by level 5 with difficulty
-  ramping to full — and now maps **one weapon per level** (L1 catapult → L5
-  bazooka), so all seven creatures AND all five weapons are play-tested in five
-  levels. Flip to `false` for the real **50-level** campaign (weapons unlock in
-  bands: catapult 1–15, crossbow 16–25, spear-crossbow 26–35, spear 36–45,
-  bazooka 46–50). `levels.js` has both generators; tests cover both.
+- **NOW IN FULL CAMPAIGN MODE** (`SAMPLER_MODE = false` in `constants.js`, set
+  2026-07-19): the real **50-level** game. Weapons unlock in bands (catapult
+  1–15, crossbow 16–25, spear-crossbow 26–35, spear 36–45, bazooka 46–50);
+  scenery theme rotates every 5 levels; difficulty ramps across all 50. Home
+  "Play" drops into the furthest unlocked level and levels advance one-to-next
+  (the sampler picker only appears when `TOTAL_LEVELS <= 8`, so it's off now).
+  Flip `SAMPLER_MODE = true` for the 5-level test build (all 7 creatures + all 5
+  weapons across 5 levels). `levels.js` has both generators; tests cover both.
 
 ## Architecture (all in `src/`)
 
@@ -62,7 +63,11 @@ Pure logic split from rendering, unit tested in Node with no browser.
   (`WEAPON_SOUND`, `MELODY`, `noteHz`, `CLIP_KINDS`, `clipUrl`) is tested;
   `createSound()` is a thin, Node-safe, muteable player (no-ops with no browser).
 - `audio/` — 7 short creature-cry MP3s (Wikimedia Commons; see `audio/CREDITS.md`).
-- `render.js` — all drawing. `storage.js` — save + mute setting. `main.js` — boot/loop/wiring. `input.js` — drag capture.
+- `ui.js` — pure menu button layouts (normalised coords) + `hitTest`; shared by
+  render (drawing) and main (tap dispatch). Unit-tested.
+- `render.js` — all drawing (incl. home/pause/settings/how-to screens).
+  `storage.js` — save + mute + music/SFX prefs. `main.js` — boot/loop/screen
+  state machine/wiring. `input.js` — drag capture.
 
 **Invariants:** the arena is a **wedge** (`xLimitAt(z)`) so creatures must live
 where aim can reach — tests prove every creature on all 50 campaign levels AND
@@ -73,7 +78,7 @@ independent (x at depth z = tan(heading)·z), so weapons never move creatures.
 
 ## Tests
 
-184 tests, all passing. Node's built-in runner, zero deps.
+194 tests, all passing. Node's built-in runner, zero deps.
 
 ```bash
 npm test        # everything (the 55 reachability sweeps make it ~1-2 min)
@@ -88,14 +93,15 @@ dodge only, no HP**; **each weapon plays differently**; the 4 extra creatures
 were mine to invent (player approved all 7).
 
 Phases: 1 POV ✅ · 2 distance scoring ✅ · 3 fifty levels + 7 creatures +
-speed/dodge scaling ✅ · 4 five weapons ✅ · 5 scenery + fenced yard ✅ (all
-five weapons' cartoon art + the scenery/pen play-tested and APPROVED) · 6
-**sounds — BUILT, awaiting play-test on the phone**.
+speed/dodge scaling ✅ · 4 five weapons ✅ · 5 scenery + fenced yard ✅ · 6
+**sound — APPROVED** (real animal clips; see below) · 7 **menu/game-shell —
+APPROVED** (home screen, pause menu, settings).
 
 **Player's game plan from here (2026-07-19):** (1) per-level scenery ✅ · (2)
-**sounds** — weapon fire, background music, creature-hit noise (**BUILT, needs
-play-test**) · (3) a friend play-tests the 5 weapons · (4) entry/exit sounds +
-general game-feel features · (5) **deploy live**. "Keep improvising as we go."
+**sounds** ✅ APPROVED · (2b) **menu/game-shell** — home, pause, settings
+(**APPROVED**) · (3) a friend play-tests the 5 weapons · (4)
+entry/exit sounds + general game-feel features · (5) **deploy live**. "Keep
+improvising as we go."
 
 **Phase 5 done:** five scenery themes in `render.js` (`SCENERY` + `sceneryFor`),
 render-only. Each level (= each weapon in the sampler) gets its own view: hills /
@@ -105,7 +111,35 @@ only its colour and the surrounding scenery (sky, ground, backdrop silhouette)
 change. Backdrops: rolling hills, mesas, snowy peaks, jungle canopy, moon+stars.
 Campaign rotates a theme every five levels; sampler shows one per level.
 
-## Done this session (2026-07-19, sounds) — AWAITING PLAY-TEST
+## Done this session (2026-07-19, menu/game-shell) — APPROVED
+
+- **Phase 7: the game shell** — home screen, mid-game pause, settings.
+  - **New pure `src/ui.js`**: button layouts in **normalised (0..1) coords** +
+    `hitTest`. The SAME layout drives drawing (render.js) and tap dispatch
+    (main.js), so what you see is what you tap — and it sidesteps the device-px
+    vs CSS-px mismatch (render ×device size, input ÷client size). Unit-tested:
+    in-bounds, non-overlap, hit-test.
+  - **Screens** (state machine in `main.js`, now starts on `home`): `home`
+    (title + Play / Settings / How-to-play), `paused` (Resume / Restart /
+    Settings / Quit — reached via a **pause pad**, bottom-left, mirroring mute),
+    `settings` (Music + SFX ON/OFF pills, Reset progress, Back), `howto` (text).
+    Kept: `menu` sampler picker, `play`, `cleared/failed/done`.
+  - **Pause truly freezes**: `update()` only ticks the world on the `play`
+    screen, so a mid-air rock and the creatures all hold still.
+  - **Settings wire-up**: `sound.js` gained independent `music`/`sfx` enables
+    (layered under the master mute); `storage.js` persists them under
+    `catapult.audio` (own key, never touches the save) + `freshSave()` for Reset.
+    In-play corner taps (pause/mute) only fire on a genuine **tap**, never a real
+    aim drag that ends in a corner (`isTap`, 14px).
+  - `makeView` already exposes `dpr` (used by the pause/mute pads). Render draws
+    everything via one `drawButton` (rounded pad, optional ON/OFF pill) + a
+    `drawScreen` dispatcher.
+  - **Service worker → `catapult-v19`** (`src/ui.js` precached). Tests **194**,
+    all green (ui 6 + settings-storage 4 new); render smoke runs all 9 screens.
+  - **Not done (deferred by choice):** the nicer level-select + per-level stars/
+    best-score screen — the bare sampler picker still stands in for now.
+
+## Done earlier this session (2026-07-19, sound) — APPROVED
 
 - **Phase 6: sound.** New `src/sound.js` — all audio generated live in the
   browser with WebAudio, **no files shipped** (PWA stays tiny/offline). Style:
@@ -250,7 +284,7 @@ then **deploy live**.
   when the preview isn't truly on screen, and screenshots time out. Verify by
   importing the real modules and reading state/pixels back (e.g. build a run,
   call `drawScene` on a real canvas, sample pixels), not by screenshotting.
-- **Bump the service-worker cache (`sw.js`, currently `catapult-v18`) on any
+- **Bump the service-worker cache (`sw.js`, currently `catapult-v19`) on any
   file change**, and hard-refresh / clear site data — it is network-first but an
   old cache-first worker can still pin stale files. On phone: Chrome → site
   settings → Clear & reset. **Note:** clearing site data also wipes the save
@@ -272,11 +306,11 @@ then **deploy live**.
 
 ## Next steps
 
-1. **Play-test the sound (NEXT):** hard-refresh on the phone, tap to start, and
-   judge — per-weapon fire, hit splat, bazooka boom, win/lose jingles, the music
-   loop, and the bottom-right mute button. Tune `sound.js` from feedback (gain
-   too loud/quiet, a fire sound that misses, music too busy, etc.).
+1. **Now on the full 50-level campaign** (`SAMPLER_MODE = false`, done
+   2026-07-19) — play it through on the phone and watch difficulty/weapon-band
+   pacing over the long haul.
 2. A **friend play-tests** the 5 weapons; tune from feedback.
-3. **Entry/exit sounds + game-feel polish** (whatever a finished game needs).
+3. **Game-feel polish**: level-select screen (best score/stars per level —
+   deferred from the menu work), entry/exit sounds, score-tally + "stars" on
+   level-complete, transitions.
 4. **Deploy live.**
-5. Flip `SAMPLER_MODE=false` to ship the full 50-level campaign when ready.

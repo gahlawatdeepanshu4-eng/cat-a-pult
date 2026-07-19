@@ -5,9 +5,13 @@ import { createInput } from './input.js';
 import { aimFromDrag } from './aim.js';
 import { createRun, fire, tick, aliveCount } from './game.js';
 import { levelSpec } from './levels.js';
-import { loadSave, writeSave, recordClear, loadMuted, writeMuted } from './storage.js';
+import {
+  loadSave, writeSave, recordClear, loadMuted, writeMuted,
+  loadAudioPrefs, writeAudioPrefs, freshSave,
+} from './storage.js';
 import { weaponOf } from './weapons.js';
 import { createSound } from './sound.js';
+import { homeButtons, settingsButtons, pauseButtons, howtoButtons, hitTest } from './ui.js';
 import { SLING_Y, GROUND_Y, WALL_Z, GRAVITY, TOTAL_LEVELS, SAMPLER_MODE } from './constants.js';
 
 const canvas = document.getElementById('game');
@@ -21,12 +25,17 @@ const clampLevel = (n) => Math.min(Math.max(1, n), TOTAL_LEVELS);
 let save = loadSave();
 let level = clampLevel(save.unlockedLevel);
 let run = createRun(level) ?? createRun(1);
-let screen = 'menu'; // 'menu' | 'play' | 'cleared' | 'failed' | 'done'
+// Screens: 'home' | 'menu' (sampler level picker) | 'play' | 'paused' |
+// 'settings' | 'howto' | 'cleared' | 'failed' | 'done'.
+let screen = 'home';
+let settingsReturn = 'home'; // where the settings Back button goes
 let pop = null;
 let launchAnim = 0; // 1 right after a shot, decays to 0 — the weapon's throw/recoil
 
-// Audio: generated live, no files. Starts muted-or-not from the saved setting.
-const sound = createSound({ muted: loadMuted() });
+// Audio: generated live. Master mute + independent music/SFX toggles, each read
+// from its saved setting.
+const audioPrefs = loadAudioPrefs();
+const sound = createSound({ muted: loadMuted(), music: audioPrefs.music, sfx: audioPrefs.sfx });
 
 // The mute button is a square in the bottom-right corner. One rect, used both
 // to draw it (device px, via drawScene) and to hit-test a tap (CSS px, here),
@@ -42,6 +51,37 @@ function muteRectCss() {
 function tappedMute(x, y) {
   const r = muteRectCss();
   return x >= r.x && y >= r.y;
+}
+
+// The pause pad mirrors the mute button in the bottom-LEFT corner.
+function tappedPause(x, y) {
+  const w = canvas.clientWidth || 1;
+  const h = canvas.clientHeight || 1;
+  const s = Math.max(44, Math.min(w, h) * MUTE_FRAC);
+  return x <= s && y >= h - s;
+}
+
+// A release that barely moved is a tap (a button press), not an aim drag. Lets
+// the in-play corner buttons work without ever swallowing a real shot.
+const TAP_PX = 14;
+const isTap = (dx, dy) => Math.abs(dx) < TAP_PX && Math.abs(dy) < TAP_PX;
+
+// Menu buttons are laid out in normalised (0..1) space in ui.js; convert a CSS
+// tap the same way so the hit-test matches what was drawn.
+function tapId(buttons, x, y) {
+  const w = canvas.clientWidth || 1;
+  const h = canvas.clientHeight || 1;
+  return hitTest(buttons, x / w, y / h);
+}
+
+function toggleMuteAndPersist() {
+  const muted = sound.toggleMute();
+  writeMuted(muted);
+  if (!muted && screen === 'play') sound.startMusic();
+}
+
+function persistAudio() {
+  writeAudioPrefs({ music: sound.isMusicEnabled(), sfx: sound.isSfxEnabled() });
 }
 
 // The start-menu level picker. Only shown for a short build (the sampler), where
@@ -68,7 +108,57 @@ function startLevel(n) {
   run = createRun(level);
   screen = 'play';
   pop = null;
-  sound.startMusic(); // no-op if muted or already looping
+  sound.startMusic(); // no-op if muted, music off, or already looping
+}
+
+// Home "Play": in the short sampler build, open the level/weapon picker; in the
+// full campaign, jump straight into the furthest unlocked level.
+function playFromHome() {
+  if (MENU_LEVELS) { screen = 'menu'; pop = null; }
+  else startLevel(clampLevel(save.unlockedLevel));
+}
+
+function openSettings(from) {
+  settingsReturn = from;
+  screen = 'settings';
+}
+
+function resetProgress() {
+  save = freshSave();
+  writeSave(save);
+  level = 1;
+  run = createRun(1);
+}
+
+// Route a tap on one of the menu-type screens to its action.
+function handleMenuTap(x, y) {
+  if (screen === 'home') {
+    const id = tapId(homeButtons(), x, y);
+    if (id === 'play') playFromHome();
+    else if (id === 'settings') openSettings('home');
+    else if (id === 'howto') screen = 'howto';
+    return;
+  }
+  if (screen === 'howto') {
+    if (tapId(howtoButtons(), x, y) === 'back') screen = 'home';
+    return;
+  }
+  if (screen === 'settings') {
+    const id = tapId(settingsButtons(), x, y);
+    if (id === 'music') { sound.toggleMusic(); persistAudio(); }
+    else if (id === 'sfx') { sound.toggleSfx(); persistAudio(); }
+    else if (id === 'reset') resetProgress();
+    else if (id === 'back') screen = settingsReturn;
+    return;
+  }
+  if (screen === 'paused') {
+    if (tappedMute(x, y)) { toggleMuteAndPersist(); return; }
+    const id = tapId(pauseButtons(), x, y);
+    if (id === 'resume') screen = 'play';
+    else if (id === 'restart') startLevel(level);
+    else if (id === 'settings') openSettings('paused');
+    else if (id === 'quit') { screen = 'home'; pop = null; }
+  }
 }
 
 // Same maths as the shot itself, so the preview cannot lie.
@@ -96,20 +186,22 @@ const input = createInput(canvas, {
     // The context can only start from a user gesture — this is the first one.
     sound.resume();
 
-    // Mute toggle first, on any screen, so a tap on the speaker never also
-    // fires a shot or picks a level.
-    if (tappedMute(x, y)) {
-      const muted = sound.toggleMute();
-      writeMuted(muted);
-      if (!muted && screen === 'play') sound.startMusic();
+    // Full-screen menu screens: any release is a tap; dispatch to a button.
+    if (screen === 'home' || screen === 'settings' || screen === 'howto' || screen === 'paused') {
+      handleMenuTap(x, y);
       return;
     }
 
-    if (screen === 'menu') { startLevel(levelFromTap(x)); return; }
+    // The sampler level/weapon picker.
+    if (screen === 'menu') {
+      if (tappedMute(x, y)) { toggleMuteAndPersist(); return; }
+      startLevel(levelFromTap(x));
+      return;
+    }
 
-    // Between levels: in the sampler test build, go back to the picker so any
-    // weapon is one tap away. In the full campaign, keep normal progression.
+    // Between levels: sampler goes back to the picker; the campaign advances.
     if (screen === 'cleared' || screen === 'failed' || screen === 'done') {
+      if (tappedMute(x, y)) { toggleMuteAndPersist(); return; }
       if (MENU_LEVELS) { screen = 'menu'; pop = null; return; }
       if (screen === 'failed') { startLevel(level); return; }
       if (screen === 'done') { startLevel(1); return; }
@@ -119,7 +211,12 @@ const input = createInput(canvas, {
       return;
     }
 
-    if (screen !== 'play' || run.phase !== 'aiming') return;
+    // Live gameplay. Corner taps (pause / mute) come first, but only a genuine
+    // tap — never a real aim drag that happens to end in a corner.
+    if (isTap(dx, dy) && tappedPause(x, y)) { screen = 'paused'; return; }
+    if (isTap(dx, dy) && tappedMute(x, y)) { toggleMuteAndPersist(); return; }
+
+    if (run.phase !== 'aiming') return;
     const aim = aimFromDrag(dx, dy, canvas.clientHeight);
     if (!aim) return; // too short a drag: a cancel, not a dud shot
     run = fire(run, aim);
@@ -144,6 +241,10 @@ function update(dt) {
   // The throw/recoil plays out over ~0.25s.
   if (launchAnim > 0) launchAnim = Math.max(0, launchAnim - dt * 4);
 
+  // Freeze the world off the play screen — this is what makes Pause actually
+  // pause (a mid-air rock and the creatures all hold still).
+  if (screen !== 'play') return;
+
   const before = run.phase;
   run = tick(run, dt);
 
@@ -153,7 +254,6 @@ function update(dt) {
     pop = { ...run.lastHit, life: 1 };
     sound.hit(run.lastHit);
   }
-  if (screen !== 'play') return;
 
   if (run.phase === 'cleared') {
     save = recordClear(save, level, run.score);
@@ -234,6 +334,8 @@ function frame(now) {
       menu: screen === 'menu' && MENU_LEVELS ? MENU_LEVELS : null,
       overlay: screen === 'menu' && MENU_LEVELS ? null : overlayLines(),
       muted: sound.isMuted(),
+      screen,
+      audio: { music: sound.isMusicEnabled(), sfx: sound.isSfxEnabled() },
     }, view);
   } catch (err) {
     console.error('frame failed', err);

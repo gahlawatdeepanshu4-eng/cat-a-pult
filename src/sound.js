@@ -63,14 +63,16 @@ const AudioCtx = typeof window !== 'undefined'
   ? (window.AudioContext || window.webkitAudioContext)
   : null;
 
-export function createSound({ muted = false } = {}) {
+export function createSound({ muted = false, music = true, sfx = true } = {}) {
   let ctx = null;
   let master = null;      // everything routes through here; muting silences it
   let musicGain = null;   // the tune's own quieter bus
   let musicTimer = null;  // lookahead scheduler handle
   let nextNoteAt = 0;     // audio-clock time of the next beat to schedule
   let beat = 0;           // index into MELODY, wraps
-  let isMuted = muted;
+  let isMuted = muted;    // the master mute (speaker button) — silences all
+  let musicOn = music;    // settings: background tune on/off
+  let sfxOn = sfx;        // settings: fire/hit/jingle effects on/off
 
   const clipBytes = {};   // kind -> Promise<ArrayBuffer> (fetched raw)
   const clipBuffers = {}; // kind -> decoded AudioBuffer (ready to play)
@@ -179,8 +181,9 @@ export function createSound({ muted = false } = {}) {
     src.stop(t0 + dur + 0.02);
   }
 
+  // Effects gate: silenced by the master mute OR the settings SFX toggle.
   function safe(fn) {
-    if (isMuted || !ensure()) return;
+    if (isMuted || !sfxOn || !ensure()) return;
     try { fn(); } catch { /* audio must never crash the game */ }
   }
 
@@ -328,7 +331,7 @@ export function createSound({ muted = false } = {}) {
   }
 
   function startMusic() {
-    if (isMuted || !ensure() || musicTimer) return;
+    if (isMuted || !musicOn || !ensure() || musicTimer) return;
     nextNoteAt = ctx.currentTime + 0.05;
     scheduleMusic();
     musicTimer = setInterval(scheduleMusic, 25);
@@ -405,5 +408,20 @@ export function createSound({ muted = false } = {}) {
     },
     toggleMute() { return this.setMuted(!isMuted); },
     isMuted() { return isMuted; },
+
+    // Settings: independent Music and SFX switches, layered under the master
+    // mute (mute still silences everything regardless of these).
+    setMusicEnabled(next) {
+      musicOn = !!next;
+      if (!musicOn) stopMusic();
+      else if (ctx && !isMuted) startMusic();
+      return musicOn;
+    },
+    toggleMusic() { return this.setMusicEnabled(!musicOn); },
+    isMusicEnabled() { return musicOn; },
+
+    setSfxEnabled(next) { sfxOn = !!next; return sfxOn; },
+    toggleSfx() { return this.setSfxEnabled(!sfxOn); },
+    isSfxEnabled() { return sfxOn; },
   };
 }

@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_SAVE, isValidSave, loadSave, writeSave, recordClear } from '../src/storage.js';
+import {
+  DEFAULT_SAVE, isValidSave, loadSave, writeSave, recordClear,
+  loadAudioPrefs, writeAudioPrefs, freshSave,
+} from '../src/storage.js';
 import { TOTAL_LEVELS } from '../src/constants.js';
 
 class FakeStorage {
@@ -81,4 +84,29 @@ test('the higher score for a level is kept', () => {
 test('recordClear does not mutate the save passed in', () => {
   recordClear(DEFAULT_SAVE, 1, 100);
   assert.deepEqual(DEFAULT_SAVE.bestScores, {});
+});
+
+test('audio prefs default to both on when nothing is stored', () => {
+  assert.deepEqual(loadAudioPrefs(new FakeStorage()), { music: true, sfx: true });
+});
+
+test('audio prefs round-trip and treat only explicit false as off', () => {
+  const s = new FakeStorage();
+  writeAudioPrefs({ music: false, sfx: true }, s);
+  assert.deepEqual(loadAudioPrefs(s), { music: false, sfx: true });
+  writeAudioPrefs({ music: true, sfx: false }, s);
+  assert.deepEqual(loadAudioPrefs(s), { music: true, sfx: false });
+});
+
+test('audio prefs survive corrupt JSON and a throwing storage', () => {
+  const s = new FakeStorage();
+  s.setItem('catapult.audio', '{bad');
+  assert.deepEqual(loadAudioPrefs(s), { music: true, sfx: true });
+  assert.deepEqual(loadAudioPrefs(new ThrowingStorage()), { music: true, sfx: true });
+  assert.equal(writeAudioPrefs({ music: true, sfx: true }, new ThrowingStorage()), false);
+});
+
+test('freshSave is a pristine level-1 save (reset progress)', () => {
+  assert.deepEqual(freshSave(), DEFAULT_SAVE);
+  assert.notEqual(freshSave().bestScores, DEFAULT_SAVE.bestScores); // a fresh object
 });

@@ -1,6 +1,7 @@
 import { project } from './project.js';
 import { radiusOf, centreOf, KIND } from './creatures.js';
 import { WALL_Z, ROCK_RADIUS } from './constants.js';
+import { homeButtons, settingsButtons, pauseButtons, howtoButtons } from './ui.js';
 
 function emoji(ctx, glyph, x, y, px) {
   if (px < 3) return;
@@ -1055,9 +1056,172 @@ export function drawScene(ctx, scene, view) {
   drawPower(ctx, scene.power, view);
   drawFloatingPoints(ctx, scene.pop, view);
   drawHud(ctx, scene.hud, view);
-  if (scene.menu) drawMenu(ctx, scene.menu, view);
+  drawScreen(ctx, scene, view);
+}
+
+// Draw whatever menu/overlay the current screen calls for, on top of the world.
+// The full-screen menus (home/settings/how-to) paint their own opaque panel, so
+// the frozen game underneath doesn't show through; the in-play family keeps the
+// pause + mute controls visible.
+function drawScreen(ctx, scene, view) {
+  const s = scene.screen;
+  if (s === 'home') { drawHome(ctx, view); return; }
+  if (s === 'settings') { drawSettings(ctx, scene.audio ?? {}, view); return; }
+  if (s === 'howto') { drawHowto(ctx, view); return; }
+
+  if (s === 'paused') drawPause(ctx, view);
+  else if (scene.menu) drawMenu(ctx, scene.menu, view);
   else drawOverlay(ctx, scene.overlay, view);
-  drawMute(ctx, scene.muted, view); // on top of everything, always tappable
+
+  if (s === 'play') drawPauseButton(ctx, view);
+  drawMute(ctx, scene.muted, view); // global control, always on top when in-game
+}
+
+// --- Menu screens ----------------------------------------------------------
+
+const PANEL_BG = '#241a10';
+
+function byId(buttons, id) {
+  return buttons.find((b) => b.id === id);
+}
+
+// One tappable button from a normalised rect (fraction of the canvas). `pill`
+// draws an ON/OFF chip on the right and left-aligns the label — for toggles.
+function drawButton(ctx, b, view, { label, primary = false, pill = null } = {}) {
+  const x = b.x * view.width;
+  const y = b.y * view.height;
+  const w = b.w * view.width;
+  const h = b.h * view.height;
+  ctx.save();
+  ctx.fillStyle = primary ? '#e8443a' : 'rgba(45,33,20,0.94)';
+  roundRectPath(ctx, x, y, w, h, h * 0.26);
+  ctx.fill();
+  ctx.lineWidth = Math.max(1, view.height * 0.003);
+  ctx.strokeStyle = 'rgba(242,232,207,0.35)';
+  ctx.stroke();
+
+  ctx.fillStyle = '#f2e8cf';
+  ctx.textBaseline = 'middle';
+  ctx.font = `700 ${h * 0.4}px system-ui, sans-serif`;
+  if (pill) {
+    ctx.textAlign = 'left';
+    ctx.fillText(label, x + h * 0.4, y + h / 2);
+    const pw = w * 0.26;
+    const ph = h * 0.52;
+    const px = x + w - pw - h * 0.3;
+    const py = y + h / 2 - ph / 2;
+    ctx.fillStyle = pill.on ? '#57cc99' : '#6b6258';
+    roundRectPath(ctx, px, py, pw, ph, ph / 2);
+    ctx.fill();
+    ctx.fillStyle = pill.on ? '#12331f' : '#241a10';
+    ctx.textAlign = 'center';
+    ctx.font = `800 ${ph * 0.56}px system-ui, sans-serif`;
+    ctx.fillText(pill.on ? 'ON' : 'OFF', px + pw / 2, py + ph / 2);
+  } else {
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x + w / 2, y + h / 2);
+  }
+  ctx.restore();
+}
+
+function screenTitle(ctx, text, view, sub) {
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffb703';
+  ctx.font = `800 ${view.height * 0.11}px system-ui, sans-serif`;
+  ctx.fillText(text, view.width / 2, view.height * (sub ? 0.2 : 0.22));
+  if (sub) {
+    ctx.fillStyle = '#f2e8cf';
+    ctx.font = `400 ${view.height * 0.037}px system-ui, sans-serif`;
+    ctx.fillText(sub, view.width / 2, view.height * 0.3);
+  }
+}
+
+function drawHome(ctx, view) {
+  ctx.fillStyle = PANEL_BG;
+  ctx.fillRect(0, 0, view.width, view.height);
+  screenTitle(ctx, 'Cat-a-pult', view, 'Fling stuff at silly creatures');
+  const b = homeButtons();
+  drawButton(ctx, byId(b, 'play'), view, { label: '▶  Play', primary: true });
+  drawButton(ctx, byId(b, 'settings'), view, { label: 'Settings' });
+  drawButton(ctx, byId(b, 'howto'), view, { label: 'How to play' });
+}
+
+function drawSettings(ctx, audio, view) {
+  ctx.fillStyle = PANEL_BG;
+  ctx.fillRect(0, 0, view.width, view.height);
+  screenTitle(ctx, 'Settings', view);
+  const b = settingsButtons();
+  drawButton(ctx, byId(b, 'music'), view, { label: 'Music', pill: { on: audio.music !== false } });
+  drawButton(ctx, byId(b, 'sfx'), view, { label: 'Sound effects', pill: { on: audio.sfx !== false } });
+  drawButton(ctx, byId(b, 'reset'), view, { label: 'Reset progress' });
+  drawButton(ctx, byId(b, 'back'), view, { label: 'Back' });
+}
+
+function drawPause(ctx, view) {
+  ctx.fillStyle = 'rgba(10,8,5,0.74)';
+  ctx.fillRect(0, 0, view.width, view.height);
+  screenTitle(ctx, 'Paused', view);
+  const b = pauseButtons();
+  drawButton(ctx, byId(b, 'resume'), view, { label: '▶  Resume', primary: true });
+  drawButton(ctx, byId(b, 'restart'), view, { label: 'Restart level' });
+  drawButton(ctx, byId(b, 'settings'), view, { label: 'Settings' });
+  drawButton(ctx, byId(b, 'quit'), view, { label: 'Quit to menu' });
+}
+
+const HOWTO_LINES = [
+  'Drag back from the slingshot and let go —',
+  'like Angry Birds.',
+  '',
+  'Drag direction aims, drag length is power.',
+  '',
+  'Clear every creature before your ammo runs',
+  'out. Farther hits score more, and each',
+  'level hands you a new weapon.',
+];
+
+function drawHowto(ctx, view) {
+  ctx.fillStyle = PANEL_BG;
+  ctx.fillRect(0, 0, view.width, view.height);
+  screenTitle(ctx, 'How to play', view);
+
+  const back = byId(howtoButtons(), 'back');
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#f2e8cf';
+  // Centre the text block in the gap between the title and the Back button, so
+  // it can't overrun the button on a short (landscape) screen no matter how
+  // many lines there are.
+  const top = view.height * 0.32;
+  const bottom = back.y * view.height;
+  const lh = Math.min(view.height * 0.052, (bottom - top) / HOWTO_LINES.length);
+  const size = lh * 0.72;
+  ctx.font = `400 ${size}px system-ui, sans-serif`;
+  const startY = (top + bottom) / 2 - ((HOWTO_LINES.length - 1) * lh) / 2;
+  HOWTO_LINES.forEach((line, i) => {
+    ctx.fillText(line, view.width / 2, startY + i * lh);
+  });
+
+  drawButton(ctx, back, view, { label: 'Back' });
+}
+
+// The in-play pause pad: bottom-left corner, mirroring the mute button's square.
+function drawPauseButton(ctx, view) {
+  const s = Math.max(44 * (view.dpr || 1), Math.min(view.width, view.height) * 0.13);
+  const x = 0;
+  const y = view.height - s;
+  ctx.save();
+  ctx.fillStyle = 'rgba(20,20,26,0.45)';
+  roundRectPath(ctx, x + s * 0.14, y + s * 0.14, s * 0.72, s * 0.72, s * 0.2);
+  ctx.fill();
+  ctx.fillStyle = '#f2e8cf';
+  const cx = x + s / 2;
+  const cy = y + s / 2;
+  const bw = s * 0.1;
+  const bh = s * 0.34;
+  ctx.fillRect(cx - bw * 1.6, cy - bh / 2, bw, bh);
+  ctx.fillRect(cx + bw * 0.6, cy - bh / 2, bw, bh);
+  ctx.restore();
 }
 
 // The mute toggle: a rounded pad in the bottom-right corner with a speaker
