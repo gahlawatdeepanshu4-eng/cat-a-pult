@@ -857,7 +857,9 @@ function drawLauncher(ctx, view, scene) {
 export function drawPower(ctx, power, view) {
   const w = view.width * 0.02;
   const h = view.height * 0.4;
-  const x = view.width * 0.035;
+  // Push in past the left safe-area inset (notch / Dynamic Island) so the gauge
+  // isn't clipped; 0 inset on notchless screens leaves it exactly where it was.
+  const x = (view.safe?.left ?? 0) + view.width * 0.035;
   const y = view.height * 0.32;
 
   ctx.fillStyle = 'rgba(0,0,0,0.35)';

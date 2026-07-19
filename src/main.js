@@ -17,6 +17,26 @@ import { SLING_Y, GROUND_Y, WALL_Z, GRAVITY, TOTAL_LEVELS, SAMPLER_MODE } from '
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
+// The scenery stays full-bleed, but edge UI (the Power gauge) needs to dodge the
+// notch / Dynamic Island. A hidden probe carries the CSS safe-area insets so we
+// can read them in JS; multiply by dpr to get device pixels for the renderer.
+// Zero on phones without a notch, so nothing moves there.
+const safeProbe = document.createElement('div');
+safeProbe.style.cssText =
+  'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;'
+  + 'padding:env(safe-area-inset-top) env(safe-area-inset-right)'
+  + ' env(safe-area-inset-bottom) env(safe-area-inset-left);';
+document.body.appendChild(safeProbe);
+function readSafeInsets(dpr) {
+  const cs = getComputedStyle(safeProbe);
+  return {
+    top: (parseFloat(cs.paddingTop) || 0) * dpr,
+    right: (parseFloat(cs.paddingRight) || 0) * dpr,
+    bottom: (parseFloat(cs.paddingBottom) || 0) * dpr,
+    left: (parseFloat(cs.paddingLeft) || 0) * dpr,
+  };
+}
+
 // Clamp to the current build's range: a save from the 50-level campaign must
 // not point past the end of the 5-level sampler (createRun would return null
 // and the loop would crash on a missing level).
@@ -305,6 +325,7 @@ function frame(now) {
 
     const view = makeView(canvas);
     const dpr = canvas.width / canvas.clientWidth || 1;
+    view.safe = readSafeInsets(dpr); // so edge UI can dodge the notch/Island
     const d = input.getDrag();
     const aiming = screen === 'play' && run.phase === 'aiming';
     const aim = aiming && d
