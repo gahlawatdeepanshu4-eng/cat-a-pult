@@ -78,13 +78,21 @@ dodge only, no HP**; **each weapon plays differently**; the 4 extra creatures
 were mine to invent (player approved all 7).
 
 Phases: 1 POV ✅ · 2 distance scoring ✅ · 3 fifty levels + 7 creatures +
-speed/dodge scaling ✅ · 4 five weapons ✅ · **5 scenery themes every 5 levels (NEXT)**.
+speed/dodge scaling ✅ · 4 five weapons ✅ · **5 scenery + fenced yard ✅ (art
+unverified — needs play-test)**.
 
-**Phase 5 plan (next):** ten scenery themes (50 ÷ 5) rotating every five levels,
-each a palette + backdrop shapes drawn in `render.js` — **render-only, no logic**.
-The horizon doubles as the "flew past = miss" line. Proposed set in the spec
-(green hills, alpine, desert, snow, autumn forest, volcanic, coastal, moonlit,
-jungle, sunset mesa). In sampler mode, show five distinct themes across L1–5.
+**Player's game plan from here (2026-07-19):** (1) per-level scenery ✅ · (2)
+**sounds** — weapon fire, background music, creature-hit noise (NEXT) · (3) a
+friend play-tests the 5 weapons · (4) entry/exit sounds + general game-feel
+features · (5) **deploy live**. "Keep improvising as we go."
+
+**Phase 5 done:** five scenery themes in `render.js` (`SCENERY` + `sceneryFor`),
+render-only. Each level (= each weapon in the sampler) gets its own view: hills /
+desert / snow / jungle / night. The old stone wall is gone; creatures now roam a
+**fenced yard** (`drawFence` + `YARD`) whose shape is identical every level —
+only its colour and the surrounding scenery (sky, ground, backdrop silhouette)
+change. Backdrops: rolling hills, mesas, snowy peaks, jungle canopy, moon+stars.
+Campaign rotates a theme every five levels; sampler shows one per level.
 
 ## Done this session (2026-07-19, continued)
 

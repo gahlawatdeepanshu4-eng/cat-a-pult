@@ -1,18 +1,6 @@
 import { project } from './project.js';
 import { radiusOf, centreOf, KIND } from './creatures.js';
-import { WALL_Z, ARENA_HALF_WIDTH, ROCK_RADIUS } from './constants.js';
-
-// Decoration only. The holes score nothing now; they are what the arena wall
-// looks like.
-const HOLES = [
-  { row: 'upper', x: -430, y: 470, rx: 60, ry: 56 },
-  { row: 'upper', x: 0, y: 470, rx: 60, ry: 56 },
-  { row: 'upper', x: 430, y: 470, rx: 60, ry: 56 },
-  { row: 'lower', x: -600, y: 150, rx: 70, ry: 115 },
-  { row: 'lower', x: -200, y: 150, rx: 70, ry: 115 },
-  { row: 'lower', x: 200, y: 150, rx: 70, ry: 115 },
-  { row: 'lower', x: 600, y: 150, rx: 70, ry: 115 },
-];
+import { WALL_Z, NEAR_Z, ROCK_RADIUS } from './constants.js';
 
 function emoji(ctx, glyph, x, y, px) {
   if (px < 3) return;
@@ -241,71 +229,184 @@ function drawCreatureBody(ctx, c, x, y, s) {
   HEAD[c.kind](ctx, x, y, s, f, pal);
 }
 
-function drawSky(ctx, view) {
+// Lighten (+) or darken (-) a #rrggbb colour by a flat amount per channel.
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  const cl = (v) => Math.max(0, Math.min(255, v));
+  return `rgb(${cl(((n >> 16) & 255) + amt)},${cl(((n >> 8) & 255) + amt)},${cl((n & 255) + amt)})`;
+}
+
+// Scenery themes. Render-only: a palette (sky, yard ground, backdrop, fence)
+// plus a backdrop silhouette drawn beyond the fence. In the sampler each level
+// gets its own theme — a different view per weapon; in the campaign a theme
+// lasts a five-level band. The fenced yard itself is identical every level;
+// only these colours and the backdrop change.
+const SCENERY = [
+  { name: 'hills',  sky: ['#7ec0e8', '#cfeccb'], ground: ['#6fae4e', '#a7d17a'], backdrop: 'hills',     shape: '#4f8a3a', fence: '#9a7649' },
+  { name: 'desert', sky: ['#e8a44f', '#f6dca6'], ground: ['#cf9a52', '#eed6a0'], backdrop: 'mesa',      shape: '#bf7d3f', fence: '#c8a877' },
+  { name: 'snow',   sky: ['#a9cbe6', '#eef5fb'], ground: ['#d7e6f0', '#ffffff'], backdrop: 'mountains', shape: '#8fa4b6', fence: '#aeb4bc' },
+  { name: 'jungle', sky: ['#6fb488', '#cfe6a8'], ground: ['#4f8f3a', '#8ec062'], backdrop: 'trees',     shape: '#2f6b34', fence: '#6b4a2a' },
+  { name: 'night',  sky: ['#141c46', '#3b2f66'], ground: ['#26305a', '#454574'], backdrop: 'stars',     shape: '#ffd76a', fence: '#5b5680' },
+];
+
+export function sceneryFor(level, perLevel) {
+  const i = perLevel ? (level - 1) : Math.floor((level - 1) / 5);
+  return SCENERY[((i % SCENERY.length) + SCENERY.length) % SCENERY.length];
+}
+
+function drawSky(ctx, view, theme) {
+  const [top, bot] = theme?.sky ?? ['#6d4f2f', '#b98d54'];
   const g = ctx.createLinearGradient(0, 0, 0, view.height);
-  g.addColorStop(0, '#6d4f2f');
-  g.addColorStop(1, '#b98d54');
+  g.addColorStop(0, top);
+  g.addColorStop(1, bot);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, view.width, view.height);
 }
 
-function drawWall(ctx, view) {
-  const left = project({ x: -ARENA_HALF_WIDTH, y: 0, z: WALL_Z }, view);
-  const right = project({ x: ARENA_HALF_WIDTH, y: 0, z: WALL_Z }, view);
-  const top = project({ x: 0, y: 950, z: WALL_Z }, view);
-  const r = { x: left.x, y: top.y, w: right.x - left.x, h: left.y - top.y };
-  const s = left.scale * view.unit;
+// The themed silhouette that sits beyond the fence, on the horizon.
+function drawBackdrop(ctx, view, theme) {
+  const hz = project({ x: 0, y: 0, z: WALL_Z }, view).y;
+  const W = view.width, H = view.height;
+  const base = hz + H * 0.01;
+  const kind = theme?.backdrop;
 
-  ctx.fillStyle = '#9a9184';
-  ctx.fillRect(r.x, r.y, r.w, r.h);
-
-  const course = 48 * s;
-  ctx.strokeStyle = 'rgba(60,54,44,0.32)';
-  ctx.lineWidth = Math.max(1, 1.5 * s);
-  let row = 0;
-  for (let y = r.y; y < r.y + r.h; y += course) {
+  if (kind === 'stars') {
+    ctx.fillStyle = '#f2ead0';
     ctx.beginPath();
-    ctx.moveTo(r.x, y);
-    ctx.lineTo(r.x + r.w, y);
-    ctx.stroke();
-    const offset = (row++ % 2) * course * 1.1;
-    for (let x = r.x + offset; x < r.x + r.w; x += course * 2.2) {
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x, Math.min(y + course, r.y + r.h));
-      ctx.stroke();
-    }
-  }
-
-  for (const h of HOLES) {
-    const c = project({ x: h.x, y: h.y, z: WALL_Z }, view);
-    const rx = h.rx * c.scale * view.unit;
-    const ry = h.ry * c.scale * view.unit;
-    ctx.fillStyle = '#150f09';
-    ctx.beginPath();
-    if (h.row === 'upper') {
-      ctx.ellipse(c.x, c.y, rx, ry, 0, 0, Math.PI * 2);
-    } else {
-      ctx.moveTo(c.x - rx, c.y + ry);
-      ctx.lineTo(c.x - rx, c.y - ry * 0.15);
-      ctx.arc(c.x, c.y - ry * 0.15, rx, Math.PI, 0);
-      ctx.lineTo(c.x + rx, c.y + ry);
-      ctx.closePath();
-    }
+    ctx.arc(W * 0.8, H * 0.2, H * 0.06, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#b8ad98';
-    ctx.lineWidth = Math.max(1, 3 * c.scale * view.unit);
-    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    for (let i = 0; i < 70; i++) {
+      const x = ((i * 733) % 1000) / 1000 * W;
+      const y = ((i * 271) % 1000) / 1000 * (hz - H * 0.02);
+      ctx.beginPath();
+      ctx.arc(x, y, ((i * 97) % 3 + 1) * H * 0.0016, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    return;
+  }
+  if (kind === 'mountains') {
+    for (let i = 0; i < 5; i++) {
+      const cx = W * (i + 0.5) / 5;
+      const ph = H * (0.2 + (i % 2) * 0.08);
+      const pw = W * 0.17;
+      ctx.fillStyle = shade(theme.shape, -10 + (i % 2) * 24);
+      ctx.beginPath();
+      ctx.moveTo(cx - pw, base); ctx.lineTo(cx, base - ph); ctx.lineTo(cx + pw, base); ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(cx - pw * 0.32, base - ph * 0.68); ctx.lineTo(cx, base - ph); ctx.lineTo(cx + pw * 0.32, base - ph * 0.68);
+      ctx.closePath(); ctx.fill();
+    }
+    return;
+  }
+  if (kind === 'mesa') {
+    for (const [fx, fw, fh, d] of [[0.22, 0.24, 0.15, -18], [0.55, 0.3, 0.22, 12], [0.85, 0.22, 0.12, -24]]) {
+      ctx.fillStyle = shade(theme.shape, d);
+      const x = W * fx, w = W * fw, h = H * fh;
+      ctx.beginPath();
+      ctx.moveTo(x - w / 2, base); ctx.lineTo(x - w * 0.4, base - h);
+      ctx.lineTo(x + w * 0.4, base - h); ctx.lineTo(x + w / 2, base);
+      ctx.closePath(); ctx.fill();
+    }
+    return;
+  }
+  if (kind === 'trees') {
+    ctx.fillStyle = shade(theme.shape, -14);
+    for (let i = 0; i <= 7; i++) {
+      ctx.beginPath(); ctx.arc(W * i / 7, base - H * 0.05, H * 0.09, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = theme.shape;
+    for (let i = 0; i <= 7; i++) {
+      ctx.beginPath(); ctx.arc(W * (i + 0.5) / 7, base - H * 0.08, H * 0.075, 0, Math.PI * 2); ctx.fill();
+    }
+    return;
+  }
+  // hills (default): two layers of rolling mounds.
+  for (const [layer, d] of [[0.14, -20], [0.09, 10]]) {
+    ctx.fillStyle = shade(theme?.shape ?? '#4f8a3a', d);
+    const h = H * layer;
+    ctx.beginPath();
+    ctx.moveTo(0, base);
+    for (let i = 0; i <= 4; i++) {
+      ctx.quadraticCurveTo(W * (i - 0.5) / 4, base - h, W * i / 4, base - h * 0.2);
+    }
+    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
   }
 }
 
-function drawGround(ctx, view) {
+function drawGround(ctx, view, theme) {
+  const [near, far] = theme?.ground ?? ['#c39d63', '#eed6a0'];
   const atWall = project({ x: 0, y: 0, z: WALL_Z }, view).y;
   const g = ctx.createLinearGradient(0, atWall, 0, view.height);
-  g.addColorStop(0, '#c39d63');
-  g.addColorStop(1, '#eed6a0');
+  g.addColorStop(0, near);
+  g.addColorStop(1, far);
   ctx.fillStyle = g;
   ctx.fillRect(0, atWall, view.width, view.height - atWall);
+}
+
+// The fenced yard the creatures roam in. Its shape is identical on every level
+// (a back run at the far edge plus two sides running toward the player); only
+// the colour changes with the theme. Posts and rails are projected in
+// perspective so the yard reads as a real enclosure with depth.
+const YARD = { farW: 780, nearW: 430, nearZ: NEAR_Z - 30, postH: 150, rail: [140, 75] };
+
+function drawFence(ctx, view, theme) {
+  const col = theme?.fence ?? '#8a6b45';
+  const railCol = shade(col, -30);
+  const capCol = shade(col, 18);
+  const { farW, nearW, nearZ, postH } = YARD;
+
+  // Base points (world x,z) for the three runs: back, left side, right side.
+  const back = [];
+  for (let i = 0; i <= 8; i++) back.push({ x: -farW + (2 * farW) * (i / 8), z: WALL_Z });
+  const left = [], right = [];
+  for (let i = 0; i <= 5; i++) {
+    const t = i / 5;
+    const z = nearZ + (WALL_Z - nearZ) * t;
+    const x = nearW + (farW - nearW) * t;
+    left.push({ x: -x, z });
+    right.push({ x, z });
+  }
+
+  const drawRun = (pts) => {
+    // Rails first, then posts over them.
+    for (const rh of YARD.rail) {
+      ctx.strokeStyle = railCol;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      pts.forEach((p, i) => {
+        const s = project({ x: p.x, y: rh, z: p.z }, view);
+        if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
+      });
+      // Width from the nearest point so the rail has heft.
+      const nearScale = project({ x: pts[0].x, y: 0, z: pts[0].z }, view).scale * view.unit;
+      ctx.lineWidth = Math.max(1.5, 10 * nearScale);
+      ctx.stroke();
+    }
+    for (const p of pts) {
+      const bot = project({ x: p.x, y: 0, z: p.z }, view);
+      const top = project({ x: p.x, y: postH, z: p.z }, view);
+      const w = Math.max(2, 14 * bot.scale * view.unit);
+      ctx.strokeStyle = col;
+      ctx.lineWidth = w;
+      ctx.beginPath();
+      ctx.moveTo(bot.x, bot.y);
+      ctx.lineTo(top.x, top.y);
+      ctx.stroke();
+      // A little cap on each post.
+      ctx.fillStyle = capCol;
+      ctx.beginPath();
+      ctx.arc(top.x, top.y, w * 0.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+
+  // Furthest run first.
+  drawRun(back);
+  drawRun(left);
+  drawRun(right);
 }
 
 function drawCreatures(ctx, creatures, view) {
@@ -927,9 +1028,11 @@ export function drawOverlay(ctx, lines, view) {
 }
 
 export function drawScene(ctx, scene, view) {
-  drawSky(ctx, view);
-  drawWall(ctx, view);
-  drawGround(ctx, view);
+  const theme = scene.scenery;
+  drawSky(ctx, view, theme);
+  drawBackdrop(ctx, view, theme);
+  drawGround(ctx, view, theme);
+  drawFence(ctx, view, theme);
   drawCreatures(ctx, scene.creatures, view);
   if (scene.rock) drawFlyingProjectile(ctx, scene.rock, view, scene.weaponName);
   drawGhost(ctx, scene.ghost, view);

@@ -1,6 +1,6 @@
 import { clampDt, launchVelocity, stepBody } from './ballistics.js';
 import { makeView } from './project.js';
-import { drawScene } from './render.js';
+import { drawScene, sceneryFor } from './render.js';
 import { createInput } from './input.js';
 import { aimFromDrag } from './aim.js';
 import { createRun, fire, tick, aliveCount } from './game.js';
@@ -183,6 +183,7 @@ function frame(now) {
       loaded: aiming,
       power: aim?.power ?? 0,
       weaponName: run.spec?.weapon ?? 'catapult',
+      scenery: sceneryFor(level, SAMPLER_MODE),
       aim,
       launch: launchAnim,
       pop,
