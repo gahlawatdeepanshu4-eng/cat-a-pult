@@ -10,11 +10,15 @@ original arena game.
 
 ## What it is now
 
-- **Elevated pseudo-3D view.** You look down across a deep field toward a stone
-  wall backdrop (its holes score nothing). Creatures roam the ground; the rock
-  flies *into the screen* and shrinks with distance so you can read how far each
-  creature is. Camera: `EYE_Y=620`, `HORIZON_FRACTION=0.26`; field depth
-  `NEAR_Z=460`..`WALL_Z=1500`.
+- **Elevated pseudo-3D view.** You look down across a deep field at a **fenced
+  yard** the creatures roam in, with **per-level themed scenery** behind it (the
+  old stone wall is gone). The rock flies *into the screen* and shrinks with
+  distance so you can read how far each creature is. Camera: `EYE_Y=620`,
+  `HORIZON_FRACTION=0.26`; field depth `NEAR_Z=460`..`WALL_Z=1500`.
+- **Per-weapon look.** The held weapon + a hand are drawn low in the view and
+  swap per level (slingshot → dart blaster → giant fork → bone spear → fireworks
+  cannon), with a short throw/recoil, and the flying projectile matches the
+  weapon (rock / dart / fork / bone / firework). All render-only.
 - **Drag to aim, Angry Birds style.** Sling sits at the bottom. Drag direction
   sets aim, drag length sets power, no timer. A too-short drag cancels. Original
   "coupled" aim (`SLING_Y=70`, `MIN_ELEVATION=-0.05`, `MAX_ELEVATION=0.85`).
@@ -78,11 +82,11 @@ dodge only, no HP**; **each weapon plays differently**; the 4 extra creatures
 were mine to invent (player approved all 7).
 
 Phases: 1 POV ✅ · 2 distance scoring ✅ · 3 fifty levels + 7 creatures +
-speed/dodge scaling ✅ · 4 five weapons ✅ · **5 scenery + fenced yard ✅ (art
-unverified — needs play-test)**.
+speed/dodge scaling ✅ · 4 five weapons ✅ · 5 scenery + fenced yard ✅ · **all
+five weapons' cartoon art + the scenery/pen are now play-tested and APPROVED**.
 
 **Player's game plan from here (2026-07-19):** (1) per-level scenery ✅ · (2)
-**sounds** — weapon fire, background music, creature-hit noise (NEXT) · (3) a
+**sounds** — weapon fire, background music, creature-hit noise (**NEXT**) · (3) a
 friend play-tests the 5 weapons · (4) entry/exit sounds + general game-feel
 features · (5) **deploy live**. "Keep improvising as we go."
 
@@ -134,9 +138,17 @@ Campaign rotates a theme every five levels; sampler shows one per level.
     (rock); crossbow = **toy dart blaster** (foam dart); spear-crossbow = **giant
     fork** (flying fork — literally skewers a line, matching pierce); spear =
     **T-rex-bone spear** (bone, on-theme with the mashups); bazooka = **fireworks
-    cannon** (firework rocket, bursts = splash). SW now `catapult-v11`.
-  - Verified only that all render paths run error-free (mock-ctx smoke over all 5
-    weapons + menu). **Appearance still needs the player's eyes to refine.**
+    cannon** (firework rocket, bursts = splash). **Player approved the cartoon set.**
+- **Scenery + fenced yard, then two polish rounds (all approved):**
+  - Five per-level themes (`SCENERY`/`sceneryFor`), fenced yard replaces the wall.
+  - Fence reworked into a **big rectangular cattle pen** (`YARD.penW=790`,
+    front open, two side walls receding from the player's corners to the back
+    wall) after creatures were spilling outside the old trapezoid — `penW` beats
+    the widest wander (xLimitAt caps at 730), so all creatures are always inside.
+  - **Night level fix:** ground recoloured to moonlit green + a faint horizon
+    line on every theme, so creatures no longer look like they float. SW `v14`.
+  - Verified via mock-ctx smoke (`scratchpad/smoke-render.mjs`, run against every
+    weapon × theme); the player play-tested and approved all of it on the phone.
 
 ## Earlier this session (2026-07-19)
 
@@ -149,17 +161,18 @@ Campaign rotates a theme every five levels; sampler shows one per level.
   build's level count made `createRun` return null. `main.js` now clamps the
   start level to `TOTAL_LEVELS`; `recordClear` never lowers progress.
 
-## The open item: FEEL / LOOKS ARE UNVERIFIED
+## State of play — what's approved, what's open
 
-Logic/geometry/render are checked by importing real modules and reading
-state/pixels back. The player (Deepanshu) play-tests on an Android phone.
-Creatures and the difficulty ramp are now **approved**. Most in need of eyes now:
-- **How does each of the five weapons feel** across the sampler's 5 levels
-  (L1 catapult → L2 crossbow → L3 spear-crossbow → L4 spear → L5 bazooka)? The
-  numbers (`speedScale`/`gravityScale`/`blastRadius` in `weapons.js`) are a first
-  pass tuned for reachability, not yet for feel — expect to tune from play.
-- Does **pierce** feel satisfying (line creatures up and skewer them)? Does the
-  **bazooka splash** read clearly (the shockwave ring + multi-kill)?
+The player (Deepanshu) play-tests on an Android phone; logic/geometry/render are
+checked by importing real modules and reading state/pixels back.
+
+**Approved this session:** all 7 creatures, the difficulty ramp, all 5 weapons'
+feel (pierce + bazooka splash), the 5 cartoon weapon looks, and the scenery +
+fenced pen (incl. the night fix). Nothing visual/feel is currently blocked.
+
+**Not yet done (the next arc):** no **sounds** exist yet — that is the next task.
+Then a **friend play-tests the 5 weapons**, then entry/exit sounds + game-feel
+polish, then **deploy live**.
 
 ## Gotchas for the next session
 
@@ -167,20 +180,28 @@ Creatures and the difficulty ramp are now **approved**. Most in need of eyes now
   when the preview isn't truly on screen, and screenshots time out. Verify by
   importing the real modules and reading state/pixels back (e.g. build a run,
   call `drawScene` on a real canvas, sample pixels), not by screenshotting.
-- **Hard-refresh / clear site data after any change** — service worker (now
-  `catapult-v8`, network-first) plus an old cache-first worker can pin stale
-  files. On phone: Chrome → site settings → Clear & reset. **Note:** clearing
-  site data also wipes the save (`unlockedLevel` back to 1) — use the start-menu
-  level picker to jump straight to any level/weapon afterwards.
+- **Bump the service-worker cache (`sw.js`, currently `catapult-v14`) on any
+  file change**, and hard-refresh / clear site data — it is network-first but an
+  old cache-first worker can still pin stale files. On phone: Chrome → site
+  settings → Clear & reset. **Note:** clearing site data also wipes the save
+  (`unlockedLevel` back to 1) — use the start-menu level picker to jump straight
+  to any level/weapon afterwards.
+- **Verify render changes with `scratchpad/smoke-render.mjs`** (mock-ctx runs
+  `drawScene` for every weapon × theme × state). It only catches JS errors, not
+  appearance — the player is the only judge of looks.
 - **Never do `createRun(save.unlockedLevel)` raw** — always clamp to
   `TOTAL_LEVELS` (a longer-build save must not break a shorter build).
 - The dev server (`npm run serve`) sometimes dies between turns; restart it.
 - Windows line-ending (LF→CRLF) warnings on commit are harmless.
-- No audio, no HP, no flying by decision.
+- No HP, no flying by decision. Audio was absent so far but is now the next task
+  (add it lightweight + muteable; don't reintroduce HP or flying).
 
 ## Next steps
 
-1. Player play-tests the **5 sampler levels** and reports how each **weapon**
-   feels (esp. pierce and the bazooka splash). Tune `weapons.js` numbers from that.
-2. **Phase 5: scenery themes** (plan above) — render-only, rotating every 5 levels.
-3. Flip `SAMPLER_MODE=false` when ready to ship the full 50-level campaign.
+1. **Sounds (NEXT):** weapon fire, background music, creature-hit noise. No audio
+   exists yet — this is new ground (project was audio-free by decision). Plan:
+   generate in-browser (WebAudio, no files to ship) and add a **mute toggle**.
+2. A **friend play-tests** the 5 weapons; tune from feedback.
+3. **Entry/exit sounds + game-feel polish** (whatever a finished game needs).
+4. **Deploy live.**
+5. Flip `SAMPLER_MODE=false` to ship the full 50-level campaign when ready.
