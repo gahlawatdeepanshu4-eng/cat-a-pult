@@ -546,102 +546,127 @@ function drawHand(ctx, x, y, s, angle) {
   ctx.restore();
 }
 
-// Shared frame for a first-person held weapon: everything is drawn along +x
-// from the grip toward the muzzle, then rotated to point where the shot goes.
-// Returns the screen-space muzzle point so the loaded round can sit on it.
-function heldWeapon(ctx, view, aimAngle, reach, body) {
-  const grip = { x: view.width / 2, y: view.height * 1.0 };
+// Each non-catapult weapon is drawn compact and low, sitting in the bottom
+// margin of the screen and pointing up toward the aim: big enough to read, small
+// enough that it does not cover the creatures you are aiming at. Every one has a
+// distinct silhouette and colour so you can tell at a glance what you hold.
+
+// Crossbow — the signature is the wide horizontal bow (a T). The steel variant
+// (the spear-crossbow) swaps to a metal-and-bronze palette with a reinforcing
+// second limb, so it never reads as the same weapon as the wooden crossbow.
+function drawCrossbow(ctx, view, aimAngle, reach, steel) {
+  const s = view.height;
+  const grip = { x: view.width / 2, y: s * 1.05 };
+  const stock = steel ? '#9aa0a8' : '#8a5a2b';
+  const stockEdge = steel ? '#5f6570' : '#5a3a1c';
+  const limb = steel ? '#b5842f' : '#3a3f47';
   ctx.save();
   ctx.translate(grip.x, grip.y);
   ctx.rotate(aimAngle);
-  body(ctx, reach, view.height); // draws along +x, 0..reach
+  // Stock.
+  ctx.fillStyle = stock;
+  roundRectPath(ctx, 0, -reach * 0.07, reach, reach * 0.14, reach * 0.05);
+  ctx.fill();
+  ctx.strokeStyle = stockEdge; ctx.lineWidth = Math.max(1, s * 0.005); ctx.stroke();
+  // Wide bow limbs near the front.
+  const bx = reach * 0.82;
+  const span = reach * 1.05;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = limb;
+  ctx.lineWidth = s * (steel ? 0.02 : 0.024);
+  ctx.beginPath();
+  ctx.moveTo(bx, -span);
+  ctx.quadraticCurveTo(bx + reach * 0.16, 0, bx, span);
+  ctx.stroke();
+  if (steel) {
+    ctx.lineWidth = s * 0.01;
+    ctx.beginPath();
+    ctx.moveTo(bx - reach * 0.12, -span * 0.78);
+    ctx.quadraticCurveTo(bx + reach * 0.05, 0, bx - reach * 0.12, span * 0.78);
+    ctx.stroke();
+  }
+  // String.
+  ctx.strokeStyle = 'rgba(240,240,240,0.9)';
+  ctx.lineWidth = Math.max(1, s * 0.004);
+  ctx.beginPath();
+  ctx.moveTo(bx, -span); ctx.lineTo(reach * 0.3, 0); ctx.lineTo(bx, span);
+  ctx.stroke();
   ctx.restore();
+
+  drawHand(ctx, grip.x, grip.y, s * 0.045, aimAngle);
   return { x: grip.x + Math.cos(aimAngle) * reach, y: grip.y + Math.sin(aimAngle) * reach, grip };
 }
 
-function woodBarrel(ctx, reach, s, thickness, colour) {
-  ctx.fillStyle = colour;
-  roundRectPath(ctx, 0, -thickness / 2, reach, thickness, thickness * 0.4);
-  ctx.fill();
-  ctx.strokeStyle = '#2f2a22';
-  ctx.lineWidth = Math.max(1, s * 0.006);
-  ctx.stroke();
-}
-
-function drawCrossbow(ctx, view, aimAngle, reach, heavy) {
+// A thrown spear: a single shaft with a leather grip wrap and a steel leaf
+// blade — no crossbar, so it never looks like the crossbows. The spear IS the
+// round, so it only shows while loaded; once thrown the hand is empty.
+function drawSpear(ctx, view, aimAngle, reach, loaded) {
   const s = view.height;
-  const muzzle = heldWeapon(ctx, view, aimAngle, reach, (c, R) => {
-    // Stock/rail.
-    woodBarrel(c, R * 0.95, s, s * (heavy ? 0.05 : 0.04), heavy ? '#7a4a24' : '#8a5a2b');
-    // Bow limbs across the front, with a string behind them.
-    const bx = R * 0.72;
-    c.strokeStyle = '#4a4f57';
-    c.lineWidth = s * (heavy ? 0.02 : 0.016);
-    c.lineCap = 'round';
-    c.beginPath();
-    c.moveTo(bx, -s * 0.14);
-    c.quadraticCurveTo(bx + s * 0.04, 0, bx, s * 0.14);
-    c.stroke();
-    c.strokeStyle = 'rgba(240,240,240,0.85)';
-    c.lineWidth = Math.max(1, s * 0.004);
-    c.beginPath();
-    c.moveTo(bx, -s * 0.14);
-    c.lineTo(R * 0.2, 0);
-    c.lineTo(bx, s * 0.14);
-    c.stroke();
-  });
-  drawHand(ctx, muzzle.grip.x, muzzle.grip.y, s * 0.05, aimAngle);
-  return muzzle;
-}
-
-function drawSpearThrower(ctx, view, aimAngle, reach) {
-  const s = view.height;
-  const muzzle = heldWeapon(ctx, view, aimAngle, reach, (c, R) => {
-    woodBarrel(c, R, s, s * 0.028, '#9a6a34');
-    // A binding wrap near the grip.
-    c.strokeStyle = '#5a3a1c';
-    c.lineWidth = s * 0.01;
-    for (const dx of [0.12, 0.18, 0.24]) {
-      c.beginPath();
-      c.moveTo(R * dx, -s * 0.02);
-      c.lineTo(R * dx, s * 0.02);
-      c.stroke();
+  const grip = { x: view.width / 2, y: s * 1.05 };
+  const a = aimAngle - 0.1; // held at a slight throwing cant
+  drawHand(ctx, grip.x, grip.y, s * 0.05, a);
+  if (loaded) {
+    ctx.save();
+    ctx.translate(grip.x, grip.y);
+    ctx.rotate(a);
+    ctx.fillStyle = '#9a6a34';
+    roundRectPath(ctx, 0, -reach * 0.035, reach * 1.02, reach * 0.07, reach * 0.03);
+    ctx.fill();
+    ctx.strokeStyle = '#5a3a1c'; ctx.lineWidth = Math.max(1, s * 0.005); ctx.stroke();
+    // Leather grip wrap.
+    ctx.strokeStyle = '#4a2f18'; ctx.lineWidth = s * 0.012;
+    for (const dx of [0.1, 0.17, 0.24]) {
+      ctx.beginPath(); ctx.moveTo(reach * dx, -reach * 0.05); ctx.lineTo(reach * dx, reach * 0.05); ctx.stroke();
     }
-  });
-  // The spearhead sits at the muzzle, pointing along the aim.
-  drawProjectile(ctx, 'spear', muzzle.x, muzzle.y, s * 0.02, aimAngle);
-  drawHand(ctx, muzzle.grip.x, muzzle.grip.y, s * 0.055, aimAngle);
-  return muzzle;
+    // Steel leaf blade.
+    const bx = reach;
+    ctx.fillStyle = '#cfd3d9';
+    ctx.beginPath();
+    ctx.moveTo(bx, -reach * 0.1);
+    ctx.quadraticCurveTo(bx + reach * 0.3, 0, bx, reach * 0.1);
+    ctx.quadraticCurveTo(bx + reach * 0.08, 0, bx, -reach * 0.1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#2f2a22'; ctx.lineWidth = Math.max(1, s * 0.005); ctx.stroke();
+    ctx.restore();
+  }
+  return { grip };
 }
 
+// A shoulder-fired tube: a fat olive cylinder with a flared muzzle, a rear
+// blast cone and a top sight. Nothing else looks like it.
 function drawBazooka(ctx, view, aimAngle, reach) {
   const s = view.height;
-  const muzzle = heldWeapon(ctx, view, aimAngle, reach, (c, R) => {
-    // Tube.
-    c.fillStyle = '#556b3a';
-    roundRectPath(c, 0, -s * 0.06, R, s * 0.12, s * 0.03);
-    c.fill();
-    c.strokeStyle = '#2f2a22';
-    c.lineWidth = Math.max(1, s * 0.006);
-    c.stroke();
-    // Wide muzzle ring at the front.
-    c.fillStyle = '#3c4c28';
-    roundRectPath(c, R * 0.86, -s * 0.08, R * 0.12, s * 0.16, s * 0.02);
-    c.fill(); c.stroke();
-    // Rear vent.
-    roundRectPath(c, -R * 0.06, -s * 0.05, R * 0.08, s * 0.1, s * 0.02);
-    c.fill(); c.stroke();
-    // Little top sight.
-    c.fillStyle = '#2f2a22';
-    roundRectPath(c, R * 0.45, -s * 0.1, s * 0.02, s * 0.05, s * 0.005);
-    c.fill();
-  });
-  drawHand(ctx, muzzle.grip.x, muzzle.grip.y, s * 0.06, aimAngle);
-  return muzzle;
+  const grip = { x: view.width / 2, y: s * 1.06 };
+  const w = reach * 0.32;
+  ctx.save();
+  ctx.translate(grip.x, grip.y);
+  ctx.rotate(aimAngle);
+  ctx.fillStyle = '#556b3a';
+  roundRectPath(ctx, 0, -w, reach * 0.9, w * 2, w * 0.5);
+  ctx.fill();
+  ctx.strokeStyle = '#2f2a22'; ctx.lineWidth = Math.max(1, s * 0.006); ctx.stroke();
+  // Flared muzzle.
+  ctx.fillStyle = '#3c4c28';
+  roundRectPath(ctx, reach * 0.8, -w * 1.3, reach * 0.12, w * 2.6, w * 0.3);
+  ctx.fill(); ctx.stroke();
+  // Rear blast cone.
+  ctx.beginPath();
+  ctx.moveTo(0, -w * 0.85); ctx.lineTo(-reach * 0.14, 0); ctx.lineTo(0, w * 0.85); ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // Top sight.
+  ctx.fillStyle = '#2f2a22';
+  roundRectPath(ctx, reach * 0.4, -w * 1.6, reach * 0.03, w * 0.7, w * 0.1);
+  ctx.fill();
+  ctx.restore();
+
+  drawHand(ctx, grip.x, grip.y, s * 0.055, aimAngle);
+  return { x: grip.x + Math.cos(aimAngle) * reach * 0.9, y: grip.y + Math.sin(aimAngle) * reach * 0.9, grip };
 }
 
-// Draw whichever weapon this level uses, held in the view and pointing where
-// the shot will go. `launch` (1→0) briefly lunges it forward on release.
+// Draw whichever weapon this level uses — held low in the view, pointing where
+// the shot will go, and slightly see-through so it never hides a target.
+// `launch` (1→0) briefly lunges it forward on release.
 function drawLauncher(ctx, view, scene) {
   const name = scene.weaponName ?? 'catapult';
   // The catapult is a slingshot — its pouch follows the finger, so it keeps its
@@ -651,25 +676,28 @@ function drawLauncher(ctx, view, scene) {
     return;
   }
 
-  // Point up-screen, tilted by the aim's heading; lunge forward on release.
   const heading = scene.aim ? scene.aim.heading : 0;
-  const aimAngle = -Math.PI / 2 + heading;
-  const lunge = (scene.launch ?? 0) * view.height * 0.10;
-  const reach = view.height * 0.42 + lunge;
-  const showRound = scene.loaded && (scene.launch ?? 0) < 0.2;
+  const aimAngle = -Math.PI / 2 + heading * 0.5; // point up, tilt gently with aim
+  const lunge = (scene.launch ?? 0) * view.height * 0.05;
+  const reach = view.height * 0.2 + lunge;
+  const showRound = scene.loaded && (scene.launch ?? 0) < 0.25;
 
+  ctx.save();
+  ctx.globalAlpha = 0.9;
   let muzzle;
   if (name === 'crossbow') muzzle = drawCrossbow(ctx, view, aimAngle, reach, false);
   else if (name === 'spearcrossbow') muzzle = drawCrossbow(ctx, view, aimAngle, reach, true);
-  else if (name === 'spear') muzzle = drawSpearThrower(ctx, view, aimAngle, reach);
+  else if (name === 'spear') muzzle = drawSpear(ctx, view, aimAngle, reach, showRound);
   else if (name === 'bazooka') muzzle = drawBazooka(ctx, view, aimAngle, reach);
 
-  // The loaded round sits on the muzzle while aiming (the spear thrower already
-  // draws its own head, so skip it there).
+  // The loaded round on the muzzle while aiming. The spear is its own round and
+  // draws itself above, so it is skipped here.
   if (showRound && muzzle && name !== 'spear') {
-    const r = name === 'bazooka' ? view.height * 0.03 : view.height * 0.02;
+    const r = name === 'bazooka' ? view.height * 0.028 : view.height * 0.016;
     drawProjectile(ctx, PROJECTILE[name] ?? 'rock', muzzle.x, muzzle.y, r, aimAngle);
   }
+  ctx.globalAlpha = 1;
+  ctx.restore();
 }
 
 export function drawPower(ctx, power, view) {
