@@ -246,7 +246,7 @@ const SCENERY = [
   { name: 'desert', sky: ['#e8a44f', '#f6dca6'], ground: ['#cf9a52', '#eed6a0'], backdrop: 'mesa',      shape: '#bf7d3f', fence: '#c8a877' },
   { name: 'snow',   sky: ['#a9cbe6', '#eef5fb'], ground: ['#d7e6f0', '#ffffff'], backdrop: 'mountains', shape: '#8fa4b6', fence: '#aeb4bc' },
   { name: 'jungle', sky: ['#6fb488', '#cfe6a8'], ground: ['#4f8f3a', '#8ec062'], backdrop: 'trees',     shape: '#2f6b34', fence: '#6b4a2a' },
-  { name: 'night',  sky: ['#141c46', '#3b2f66'], ground: ['#26305a', '#454574'], backdrop: 'stars',     shape: '#ffd76a', fence: '#5b5680' },
+  { name: 'night',  sky: ['#141c46', '#33285e'], ground: ['#20463a', '#39634c'], backdrop: 'stars',     shape: '#ffd76a', fence: '#6a6490' },
 ];
 
 export function sceneryFor(level, perLevel) {
@@ -344,6 +344,16 @@ function drawGround(ctx, view, theme) {
   g.addColorStop(1, far);
   ctx.fillStyle = g;
   ctx.fillRect(0, atWall, view.width, view.height - atWall);
+
+  // A faint horizon line so the ground always reads as a separate plane from the
+  // sky — otherwise a dark theme (the night sky) blends into its ground and the
+  // creatures look like they are floating.
+  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+  ctx.lineWidth = Math.max(1, view.height * 0.004);
+  ctx.beginPath();
+  ctx.moveTo(0, atWall);
+  ctx.lineTo(view.width, atWall);
+  ctx.stroke();
 }
 
 // The fenced yard the creatures roam in — a big rectangular cattle pen. Its
