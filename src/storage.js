@@ -44,6 +44,28 @@ export function writeSave(save, storage = globalThis.localStorage) {
   }
 }
 
+// The mute setting lives under its own key, apart from the save. Keeping it
+// separate means it survives save-shape changes and, conversely, toggling sound
+// never risks the progress data. Defaults to on (unmuted).
+const MUTE_KEY = 'catapult.muted';
+
+export function loadMuted(storage = globalThis.localStorage) {
+  try {
+    return storage?.getItem(MUTE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function writeMuted(muted, storage = globalThis.localStorage) {
+  try {
+    storage?.setItem(MUTE_KEY, muted ? '1' : '0');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function recordClear(save, level, score) {
   const key = String(level);
   return {

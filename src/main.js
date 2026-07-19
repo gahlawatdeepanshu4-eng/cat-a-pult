@@ -5,8 +5,9 @@ import { createInput } from './input.js';
 import { aimFromDrag } from './aim.js';
 import { createRun, fire, tick, aliveCount } from './game.js';
 import { levelSpec } from './levels.js';
-import { loadSave, writeSave, recordClear } from './storage.js';
+import { loadSave, writeSave, recordClear, loadMuted, writeMuted } from './storage.js';
 import { weaponOf } from './weapons.js';
+import { createSound } from './sound.js';
 import { SLING_Y, GROUND_Y, WALL_Z, GRAVITY, TOTAL_LEVELS, SAMPLER_MODE } from './constants.js';
 
 const canvas = document.getElementById('game');
@@ -23,6 +24,25 @@ let run = createRun(level) ?? createRun(1);
 let screen = 'menu'; // 'menu' | 'play' | 'cleared' | 'failed' | 'done'
 let pop = null;
 let launchAnim = 0; // 1 right after a shot, decays to 0 — the weapon's throw/recoil
+
+// Audio: generated live, no files. Starts muted-or-not from the saved setting.
+const sound = createSound({ muted: loadMuted() });
+
+// The mute button is a square in the bottom-right corner. One rect, used both
+// to draw it (device px, via drawScene) and to hit-test a tap (CSS px, here),
+// so what you see and what you tap always line up. Size is a fraction of the
+// shorter side, floored so it stays a comfortable phone target.
+const MUTE_FRAC = 0.13;
+function muteRectCss() {
+  const w = canvas.clientWidth || 1;
+  const h = canvas.clientHeight || 1;
+  const s = Math.max(44, Math.min(w, h) * MUTE_FRAC);
+  return { x: w - s, y: h - s, s };
+}
+function tappedMute(x, y) {
+  const r = muteRectCss();
+  return x >= r.x && y >= r.y;
+}
 
 // The start-menu level picker. Only shown for a short build (the sampler), where
 // a row of columns fits and jumping straight to any weapon is the whole point.
@@ -48,6 +68,7 @@ function startLevel(n) {
   run = createRun(level);
   screen = 'play';
   pop = null;
+  sound.startMusic(); // no-op if muted or already looping
 }
 
 // Same maths as the shot itself, so the preview cannot lie.
@@ -71,7 +92,19 @@ function ghostArc(aim, weapon) {
 // The release uses the gesture it is handed rather than anything cached from
 // a previous frame, so the shot is exactly the drag the player just made.
 const input = createInput(canvas, {
-  onRelease({ dx, dy, x }) {
+  onRelease({ dx, dy, x, y }) {
+    // The context can only start from a user gesture — this is the first one.
+    sound.resume();
+
+    // Mute toggle first, on any screen, so a tap on the speaker never also
+    // fires a shot or picks a level.
+    if (tappedMute(x, y)) {
+      const muted = sound.toggleMute();
+      writeMuted(muted);
+      if (!muted && screen === 'play') sound.startMusic();
+      return;
+    }
+
     if (screen === 'menu') { startLevel(levelFromTap(x)); return; }
 
     // Between levels: in the sampler test build, go back to the picker so any
@@ -90,6 +123,7 @@ const input = createInput(canvas, {
     const aim = aimFromDrag(dx, dy, canvas.clientHeight);
     if (!aim) return; // too short a drag: a cancel, not a dud shot
     run = fire(run, aim);
+    sound.fire(run.spec?.weapon ?? 'catapult');
     launchAnim = 1; // kick off the throw/recoil
   },
 });
@@ -117,6 +151,7 @@ function update(dt) {
   // fire, so a miss cannot resurrect the previous hit's blood.
   if (run.lastHit && before === 'flying') {
     pop = { ...run.lastHit, life: 1 };
+    sound.hit(run.lastHit);
   }
   if (screen !== 'play') return;
 
@@ -124,8 +159,10 @@ function update(dt) {
     save = recordClear(save, level, run.score);
     writeSave(save);
     screen = 'cleared';
+    sound.cleared();
   } else if (run.phase === 'failed') {
     screen = 'failed';
+    sound.failed();
   }
 }
 
@@ -196,6 +233,7 @@ function frame(now) {
       },
       menu: screen === 'menu' && MENU_LEVELS ? MENU_LEVELS : null,
       overlay: screen === 'menu' && MENU_LEVELS ? null : overlayLines(),
+      muted: sound.isMuted(),
     }, view);
   } catch (err) {
     console.error('frame failed', err);

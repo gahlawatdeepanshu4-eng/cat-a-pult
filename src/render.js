@@ -1057,4 +1057,55 @@ export function drawScene(ctx, scene, view) {
   drawHud(ctx, scene.hud, view);
   if (scene.menu) drawMenu(ctx, scene.menu, view);
   else drawOverlay(ctx, scene.overlay, view);
+  drawMute(ctx, scene.muted, view); // on top of everything, always tappable
+}
+
+// The mute toggle: a rounded pad in the bottom-right corner with a speaker
+// glyph. Its geometry mirrors muteRectCss() in main.js (a square of side
+// max(44, 0.13·min(w,h)) tucked into the corner), so the tap target and the
+// drawn button are the same place.
+function drawMute(ctx, muted, view) {
+  const s = Math.max(44 * (view.dpr || 1), Math.min(view.width, view.height) * 0.13);
+  const x = view.width - s;
+  const y = view.height - s;
+  const cx = x + s / 2;
+  const cy = y + s / 2;
+  const g = s * 0.5;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(20,20,26,0.45)';
+  roundRectPath(ctx, x + s * 0.14, y + s * 0.14, s * 0.72, s * 0.72, s * 0.2);
+  ctx.fill();
+
+  ctx.fillStyle = muted ? '#9aa0a6' : '#f2e8cf';
+  ctx.strokeStyle = ctx.fillStyle;
+  // Speaker body: a little box + a triangular cone.
+  ctx.beginPath();
+  ctx.moveTo(cx - g * 0.34, cy - g * 0.14);
+  ctx.lineTo(cx - g * 0.14, cy - g * 0.14);
+  ctx.lineTo(cx + g * 0.06, cy - g * 0.34);
+  ctx.lineTo(cx + g * 0.06, cy + g * 0.34);
+  ctx.lineTo(cx - g * 0.14, cy + g * 0.14);
+  ctx.lineTo(cx - g * 0.34, cy + g * 0.14);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.lineWidth = Math.max(1, g * 0.09);
+  ctx.lineCap = 'round';
+  if (muted) {
+    // A red slash for "off".
+    ctx.strokeStyle = '#e8443a';
+    ctx.beginPath();
+    ctx.moveTo(cx + g * 0.16, cy - g * 0.28);
+    ctx.lineTo(cx + g * 0.42, cy + g * 0.28);
+    ctx.stroke();
+  } else {
+    // Two sound waves for "on".
+    ctx.beginPath();
+    ctx.arc(cx + g * 0.06, cy, g * 0.28, -Math.PI / 3, Math.PI / 3);
+    ctx.moveTo(cx + g * 0.06 + g * 0.44, cy - g * 0.22);
+    ctx.arc(cx + g * 0.06, cy, g * 0.46, -Math.PI / 3.4, Math.PI / 3.4);
+    ctx.stroke();
+  }
+  ctx.restore();
 }

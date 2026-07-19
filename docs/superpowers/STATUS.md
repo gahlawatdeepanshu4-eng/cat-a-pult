@@ -4,9 +4,9 @@
 
 A single-player landscape PWA for Android. From an elevated vantage you pull
 back a slingshot and fling a rock across a distance at cats, T-rexes and five
-mashup creatures roaming the field. Personal project, from scratch, no backend,
-no audio. Built as a v2 "campaign" (see the campaign spec) on top of the
-original arena game.
+mashup creatures roaming the field. Personal project, from scratch, no backend.
+Built as a v2 "campaign" (see the campaign spec) on top of the original arena
+game. **Sound now exists** (WebAudio, generated live — no files), muteable.
 
 ## What it is now
 
@@ -56,7 +56,13 @@ Pure logic split from rendering, unit tested in Node with no browser.
   `weaponForSampler`, `weaponOf`). Pure. `game.js` reads the level's weapon.
 - `levels.js` — `campaignSpec` (50) and `samplerSpec` (5) from one builder; `levelSpec` picks by mode. Each spec carries a `weapon`.
 - `game.js` — rules; returns new state. `createRun` / `createRunFromSpec`.
-- `render.js` — all drawing. `storage.js` — save. `main.js` — boot/loop/wiring. `input.js` — drag capture.
+- `sound.js` — all audio via WebAudio. Weapon fire, music, splat/boom and jingles
+  are generated live (no files); creature hit cries are **real recorded clips**
+  from `audio/*.mp3` (with the synth `voice()` as fallback). Pure data
+  (`WEAPON_SOUND`, `MELODY`, `noteHz`, `CLIP_KINDS`, `clipUrl`) is tested;
+  `createSound()` is a thin, Node-safe, muteable player (no-ops with no browser).
+- `audio/` — 7 short creature-cry MP3s (Wikimedia Commons; see `audio/CREDITS.md`).
+- `render.js` — all drawing. `storage.js` — save + mute setting. `main.js` — boot/loop/wiring. `input.js` — drag capture.
 
 **Invariants:** the arena is a **wedge** (`xLimitAt(z)`) so creatures must live
 where aim can reach — tests prove every creature on all 50 campaign levels AND
@@ -67,7 +73,7 @@ independent (x at depth z = tan(heading)·z), so weapons never move creatures.
 
 ## Tests
 
-175 tests, all passing. Node's built-in runner, zero deps.
+184 tests, all passing. Node's built-in runner, zero deps.
 
 ```bash
 npm test        # everything (the 55 reachability sweeps make it ~1-2 min)
@@ -82,13 +88,14 @@ dodge only, no HP**; **each weapon plays differently**; the 4 extra creatures
 were mine to invent (player approved all 7).
 
 Phases: 1 POV ✅ · 2 distance scoring ✅ · 3 fifty levels + 7 creatures +
-speed/dodge scaling ✅ · 4 five weapons ✅ · 5 scenery + fenced yard ✅ · **all
-five weapons' cartoon art + the scenery/pen are now play-tested and APPROVED**.
+speed/dodge scaling ✅ · 4 five weapons ✅ · 5 scenery + fenced yard ✅ (all
+five weapons' cartoon art + the scenery/pen play-tested and APPROVED) · 6
+**sounds — BUILT, awaiting play-test on the phone**.
 
 **Player's game plan from here (2026-07-19):** (1) per-level scenery ✅ · (2)
-**sounds** — weapon fire, background music, creature-hit noise (**NEXT**) · (3) a
-friend play-tests the 5 weapons · (4) entry/exit sounds + general game-feel
-features · (5) **deploy live**. "Keep improvising as we go."
+**sounds** — weapon fire, background music, creature-hit noise (**BUILT, needs
+play-test**) · (3) a friend play-tests the 5 weapons · (4) entry/exit sounds +
+general game-feel features · (5) **deploy live**. "Keep improvising as we go."
 
 **Phase 5 done:** five scenery themes in `render.js` (`SCENERY` + `sceneryFor`),
 render-only. Each level (= each weapon in the sampler) gets its own view: hills /
@@ -98,7 +105,66 @@ only its colour and the surrounding scenery (sky, ground, backdrop silhouette)
 change. Backdrops: rolling hills, mesas, snowy peaks, jungle canopy, moon+stars.
 Campaign rotates a theme every five levels; sampler shows one per level.
 
-## Done this session (2026-07-19, continued)
+## Done this session (2026-07-19, sounds) — AWAITING PLAY-TEST
+
+- **Phase 6: sound.** New `src/sound.js` — all audio generated live in the
+  browser with WebAudio, **no files shipped** (PWA stays tiny/offline). Style:
+  playful/cartoony (chosen to match the slingshot/dart/fork look; player said
+  "you pick").
+  - **Effects:** a distinct fire sound per weapon (`WEAPON_SOUND`, a pitch glide
+    ± noise: slingshot twang, dart "pew", fork whoosh-up, heavy bone thwip,
+    firework whistle-up); a light **splat** on a normal hit / **boom + thump** on
+    a bazooka splash; short win/lose jingles on level clear/fail.
+  - **Per-creature pain voices (`voice()` + `VOICED_KINDS`):** each of the 7
+    creatures cries out in its own way when hit — cat "me-ow", T-rex roar, catrex
+    screech, frogrex croak, bunnyrex high shriek, pigrex squeal, ducktrex quack.
+    `game.js` `lastHit` now carries **`kinds`** (every victim, not just the
+    nearest), so a **pierced line or a bazooka blast voices each animal in turn**
+    (staggered, capped at 5). A test asserts every `KIND` has a voice, so a new
+    creature can't ship silent.
+  - **Voices tried FORMANT synthesis** (`vox()` + `lfo()`) after "beeps not
+    animals" feedback — carrier through band-pass formants + vibrato. Player
+    play-tested (sent a screen recording): still read as beeps. Confirmed via the
+    recording's spectrogram that the formant code WAS running (not a cache miss)
+    and that much of the perceived "beeping" was actually the background MUSIC
+    (a note every 0.46s); real hits were sparse. **Conclusion: procedural synth
+    can't sound like a real animal — switched to real recorded clips (below).**
+    The synth `voice()` is kept only as a fallback.
+  - **REAL recorded creature sounds** (`audio/*.mp3`, `CLIP_KINDS`, `clipUrl`,
+    `prefetch`/`decodeClips`/`playClip` in `sound.js`): 7 short clips from
+    Wikimedia Commons — cat meow, alligator-bellow (T-rex), lion roar (catrex),
+    frog croak, guinea-pig wheek (bunnyrex), pig oink, duck quack. Downloaded
+    with the player's approval, trimmed to ~0.3–0.9s + loudness-normalised via
+    ffmpeg, re-encoded to mono MP3 (**68 KB total**). `hit()` now plays the real
+    clip per victim and **falls back to the synth voice** if a clip hasn't
+    decoded yet. Clips prefetch at page load (SW precached, `catapult-v18`) and
+    decode once the audio context exists. Licenses/attribution in
+    `audio/CREDITS.md` (mostly CC BY-SA; lion + guinea-pig are public domain).
+    **Awaiting the next phone play-test to confirm they now sound like animals.**
+  - **Background music:** a light looping tune (`MELODY`, C-major, two voices)
+    via a small lookahead scheduler, mixed well under the effects.
+  - **Mute toggle:** a speaker button drawn bottom-right (`drawMute` in
+    `render.js`), tapped via a matching corner hit-zone in `main.js`
+    (`muteRectCss`/`tappedMute`). Setting persists in its **own** localStorage
+    key (`catapult.muted`, `loadMuted`/`writeMuted` in `storage.js`) so it never
+    touches the save. Muting silences the master bus and stops the loop;
+    un-muting mid-game restarts it.
+  - **Wiring (`main.js`):** context is created/resumed on the first tap (browsers
+    require a gesture); `sound.fire` on release, `sound.hit(lastHit)` when a hit
+    is detected, `cleared()`/`failed()` on those transitions, `startMusic()` on
+    entering a level. `makeView` now also returns `dpr` (for the mute button's
+    CSS↔device sizing).
+  - **Safety:** importing `sound.js` in Node never throws and every method
+    no-ops without a browser or when muted, wrapped so an audio hiccup can't
+    crash the animation frame.
+  - **Tests** (`test/sound.test.js` + extended game/weapons tests): noteHz, every
+    weapon has a valid fire sound, every creature has a voice, fallback, melody
+    shape, Node import-safety no-op (incl. every voice), mute toggle+persistence,
+    and `lastHit.kinds` lists all victims (single / pierce-line / bazooka blast).
+    **Suite now 183, all green.** Render smoke re-run clean.
+  - **Service worker → `catapult-v18`**, `src/sound.js` in precache.
+
+## Done earlier this session (2026-07-19, continued)
 
 - **Player approved all 7 creatures AND the difficulty ramp** — both Phase-3
   feel questions closed.
@@ -168,11 +234,15 @@ checked by importing real modules and reading state/pixels back.
 
 **Approved this session:** all 7 creatures, the difficulty ramp, all 5 weapons'
 feel (pierce + bazooka splash), the 5 cartoon weapon looks, and the scenery +
-fenced pen (incl. the night fix). Nothing visual/feel is currently blocked.
+fenced pen (incl. the night fix).
 
-**Not yet done (the next arc):** no **sounds** exist yet — that is the next task.
-Then a **friend play-tests the 5 weapons**, then entry/exit sounds + game-feel
-polish, then **deploy live**.
+**Awaiting play-test:** **sound** (built this session — effects + music + mute).
+The player has NOT heard it on the phone yet; it is verified only by tests +
+Node import. This is the one open feel item now.
+
+**Not yet done (the next arc):** confirm the sound feels right on the phone, then
+a **friend play-tests the 5 weapons**, then entry/exit sounds + game-feel polish,
+then **deploy live**.
 
 ## Gotchas for the next session
 
@@ -180,7 +250,7 @@ polish, then **deploy live**.
   when the preview isn't truly on screen, and screenshots time out. Verify by
   importing the real modules and reading state/pixels back (e.g. build a run,
   call `drawScene` on a real canvas, sample pixels), not by screenshotting.
-- **Bump the service-worker cache (`sw.js`, currently `catapult-v14`) on any
+- **Bump the service-worker cache (`sw.js`, currently `catapult-v18`) on any
   file change**, and hard-refresh / clear site data — it is network-first but an
   old cache-first worker can still pin stale files. On phone: Chrome → site
   settings → Clear & reset. **Note:** clearing site data also wipes the save
@@ -193,14 +263,19 @@ polish, then **deploy live**.
   `TOTAL_LEVELS` (a longer-build save must not break a shorter build).
 - The dev server (`npm run serve`) sometimes dies between turns; restart it.
 - Windows line-ending (LF→CRLF) warnings on commit are harmless.
-- No HP, no flying by decision. Audio was absent so far but is now the next task
-  (add it lightweight + muteable; don't reintroduce HP or flying).
+- No HP, no flying by decision. Audio now exists (lightweight WebAudio +
+  muteable); don't reintroduce HP or flying.
+- **Sound can't be verified in-session** — no audio device, and it needs a real
+  tap gesture to start (browser policy). Verified only by tests + Node import;
+  the player is the judge of how it *sounds*. Tune values live in `sound.js`
+  (`WEAPON_SOUND`, `MELODY`, gain levels).
 
 ## Next steps
 
-1. **Sounds (NEXT):** weapon fire, background music, creature-hit noise. No audio
-   exists yet — this is new ground (project was audio-free by decision). Plan:
-   generate in-browser (WebAudio, no files to ship) and add a **mute toggle**.
+1. **Play-test the sound (NEXT):** hard-refresh on the phone, tap to start, and
+   judge — per-weapon fire, hit splat, bazooka boom, win/lose jingles, the music
+   loop, and the bottom-right mute button. Tune `sound.js` from feedback (gain
+   too loud/quiet, a fire sound that misses, music too busy, etc.).
 2. A **friend play-tests** the 5 weapons; tune from feedback.
 3. **Entry/exit sounds + game-feel polish** (whatever a finished game needs).
 4. **Deploy live.**

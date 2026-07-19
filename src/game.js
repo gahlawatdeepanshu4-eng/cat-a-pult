@@ -99,7 +99,12 @@ export function tick(run, dt, rand = Math.random) {
         ...out,
         creatures: next,
         score: run.score + gained,
-        lastHit: { kind: near.kind, points: gained, x: at.x, y: at.y, z: at.z, kills: struck.length },
+        // `kinds` lists every creature the shot struck, so the audio can voice
+        // each one's pain cry — a skewered line yowls all the way down.
+        lastHit: {
+          kind: near.kind, points: gained, x: at.x, y: at.y, z: at.z,
+          kills: struck.length, kinds: struck.map((c) => c.kind),
+        },
       };
     }
     if (out.creatures.every((c) => !c.alive) || outOfBounds) {
@@ -124,6 +129,7 @@ export function tick(run, dt, rand = Math.random) {
             kind: (direct ?? caught[0]).kind, points: gained,
             x: impact.x, y: impact.y, z: impact.z,
             kills: caught.length, blast: weapon.blastRadius,
+            kinds: caught.map((c) => c.kind),
           }
         : null;
       return settle({ ...run, rock: null, creatures: next, score: run.score + gained, lastHit });
@@ -143,7 +149,7 @@ export function tick(run, dt, rand = Math.random) {
       rock: null,
       creatures: next,
       score: run.score + gained,
-      lastHit: { kind: struck.kind, points: gained, x: at.x, y: at.y, z: at.z },
+      lastHit: { kind: struck.kind, points: gained, x: at.x, y: at.y, z: at.z, kinds: [struck.kind] },
     });
   }
 

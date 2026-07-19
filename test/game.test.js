@@ -107,6 +107,9 @@ test('running out of rocks with creatures alive fails the level', () => {
 test('a hit is reported so the game can show the points', () => {
   const g = killOne('trex');
   assert.equal(g.lastHit.kind, 'trex');
+  // Every victim's kind is listed so the audio can voice each one; a single
+  // kill lists just the one.
+  assert.deepEqual(g.lastHit.kinds, ['trex']);
   // The reported points are the distance-scaled value that was actually scored.
   assert.equal(g.lastHit.points, hitScore(TREX_POINTS, KILL_Z));
   assert.equal(g.lastHit.points, g.score);

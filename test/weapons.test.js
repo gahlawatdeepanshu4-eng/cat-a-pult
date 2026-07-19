@@ -134,6 +134,8 @@ test('a bazooka landing in a cluster kills all of it; a catapult kills one', () 
   assert.equal(aliveCount(boom), 0, 'the blast should clear the cluster');
   assert.ok(boom.lastHit.blast > 0, 'the hit reports its blast radius for the ring');
   assert.equal(boom.lastHit.kills, 3, 'all three are reported as killed');
+  // Every victim's kind is listed so each can cry out — here all three cats.
+  assert.deepEqual(boom.lastHit.kinds, ['cat', 'cat', 'cat']);
 
   const lob = flyToEnd(flyingRun('catapult', cluster(), { ...rock }));
   assert.equal(aliveCount(lob), 2, 'a lob with no splash kills only the cat it touches');

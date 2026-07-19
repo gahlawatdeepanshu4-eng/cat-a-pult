@@ -1,5 +1,5 @@
 // Bump CACHE when any precached file changes.
-const CACHE = 'catapult-v14';
+const CACHE = 'catapult-v18';
 const ASSETS = [
   './',
   './index.html',
@@ -14,11 +14,19 @@ const ASSETS = [
   './src/scoring.js',
   './src/weapons.js',
   './src/game.js',
+  './src/sound.js',
   './src/render.js',
   './src/input.js',
   './src/storage.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './audio/cat.mp3',
+  './audio/trex.mp3',
+  './audio/catrex.mp3',
+  './audio/frogrex.mp3',
+  './audio/bunnyrex.mp3',
+  './audio/pigrex.mp3',
+  './audio/ducktrex.mp3',
 ];
 
 self.addEventListener('install', (e) => {

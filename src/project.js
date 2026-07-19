@@ -4,6 +4,9 @@ export function makeView(canvas) {
   return {
     width: canvas.width,
     height: canvas.height,
+    // Device pixels per CSS pixel, so drawing that must line up with a CSS-space
+    // hit target (e.g. the mute button) can convert. 1 when clientWidth is 0.
+    dpr: canvas.clientWidth ? canvas.width / canvas.clientWidth : 1,
     unit: canvas.height / VIRTUAL_HEIGHT,
     horizonY: canvas.height * HORIZON_FRACTION,
   };
