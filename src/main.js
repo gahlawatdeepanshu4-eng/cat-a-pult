@@ -4,9 +4,10 @@ import { drawScene } from './render.js';
 import { createInput } from './input.js';
 import { aimFromDrag } from './aim.js';
 import { createRun, fire, tick, aliveCount } from './game.js';
+import { levelSpec } from './levels.js';
 import { loadSave, writeSave, recordClear } from './storage.js';
 import { weaponOf } from './weapons.js';
-import { SLING_Y, GROUND_Y, WALL_Z, GRAVITY, TOTAL_LEVELS } from './constants.js';
+import { SLING_Y, GROUND_Y, WALL_Z, GRAVITY, TOTAL_LEVELS, SAMPLER_MODE } from './constants.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -21,6 +22,25 @@ let level = clampLevel(save.unlockedLevel);
 let run = createRun(level) ?? createRun(1);
 let screen = 'menu'; // 'menu' | 'play' | 'cleared' | 'failed' | 'done'
 let pop = null;
+
+// The start-menu level picker. Only shown for a short build (the sampler), where
+// a row of columns fits and jumping straight to any weapon is the whole point.
+// A 50-level campaign falls back to the plain "tap to start" menu.
+const MENU_LEVELS = TOTAL_LEVELS <= 8
+  ? Array.from({ length: TOTAL_LEVELS }, (_, i) => ({
+      n: i + 1,
+      weapon: weaponOf(levelSpec(i + 1).weapon).name,
+    }))
+  : null;
+
+// Which picker column a menu tap landed in — the same even width division the
+// renderer draws, so tap and label always agree.
+function levelFromTap(x) {
+  if (!MENU_LEVELS) return level;
+  const w = canvas.clientWidth || 1;
+  const col = Math.floor((x / w) * TOTAL_LEVELS);
+  return Math.min(TOTAL_LEVELS, Math.max(1, col + 1));
+}
 
 function startLevel(n) {
   level = clampLevel(n);
@@ -50,16 +70,21 @@ function ghostArc(aim, weapon) {
 // The release uses the gesture it is handed rather than anything cached from
 // a previous frame, so the shot is exactly the drag the player just made.
 const input = createInput(canvas, {
-  onRelease({ dx, dy }) {
-    if (screen === 'menu') { startLevel(level); return; }
-    if (screen === 'failed') { startLevel(level); return; }
-    if (screen === 'done') { startLevel(1); return; }
-    if (screen === 'cleared') {
+  onRelease({ dx, dy, x }) {
+    if (screen === 'menu') { startLevel(levelFromTap(x)); return; }
+
+    // Between levels: in the sampler test build, go back to the picker so any
+    // weapon is one tap away. In the full campaign, keep normal progression.
+    if (screen === 'cleared' || screen === 'failed' || screen === 'done') {
+      if (MENU_LEVELS) { screen = 'menu'; pop = null; return; }
+      if (screen === 'failed') { startLevel(level); return; }
+      if (screen === 'done') { startLevel(1); return; }
       const next = level + 1;
       if (next > TOTAL_LEVELS) { screen = 'done'; return; }
       startLevel(next);
       return;
     }
+
     if (screen !== 'play' || run.phase !== 'aiming') return;
     const aim = aimFromDrag(dx, dy, canvas.clientHeight);
     if (!aim) return; // too short a drag: a cancel, not a dud shot
@@ -110,14 +135,18 @@ function overlayLines() {
   }
   if (screen === 'cleared') {
     const best = save.bestScores[String(level)] ?? run.score;
+    const prompt = MENU_LEVELS
+      ? 'Tap to pick another level'
+      : (level >= TOTAL_LEVELS ? 'Tap to finish' : 'Tap for the next level');
     return [
       `Level ${level} cleared`,
       `Score ${run.score}  ·  Best ${best}`,
-      level >= TOTAL_LEVELS ? 'Tap to finish' : 'Tap for the next level',
+      prompt,
     ];
   }
   if (screen === 'failed') {
-    return ['Out of rocks', `${aliveCount(run)} still standing`, 'Tap to try again'];
+    return ['Out of rocks', `${aliveCount(run)} still standing`,
+      MENU_LEVELS ? 'Tap to pick another level' : 'Tap to try again'];
   }
   if (screen === 'done') {
     return [`All ${TOTAL_LEVELS} levels done`, 'Tap to start over'];
@@ -157,7 +186,8 @@ function frame(now) {
         left: aliveCount(run),
         weapon: weapon.name,
       },
-      overlay: overlayLines(),
+      menu: screen === 'menu' && MENU_LEVELS ? MENU_LEVELS : null,
+      overlay: screen === 'menu' && MENU_LEVELS ? null : overlayLines(),
     }, view);
   } catch (err) {
     console.error('frame failed', err);

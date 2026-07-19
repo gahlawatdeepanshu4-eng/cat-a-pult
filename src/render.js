@@ -544,6 +544,58 @@ function drawFloatingPoints(ctx, pop, view) {
   ctx.globalAlpha = 1;
 }
 
+// The start-screen level picker: one tappable column per level, labelled with
+// its weapon, so the whole game (and every weapon) is reachable without having
+// to grind up from level 1. The columns divide the width evenly, and main.js
+// hit-tests a tap by the same even division, so what you tap is what you get.
+export function drawMenu(ctx, menu, view) {
+  ctx.fillStyle = 'rgba(30,20,10,0.9)';
+  ctx.fillRect(0, 0, view.width, view.height);
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffb703';
+  ctx.font = `700 ${view.height * 0.085}px system-ui, sans-serif`;
+  ctx.fillText('Cat-a-pult', view.width / 2, view.height * 0.16);
+  ctx.fillStyle = '#f2e8cf';
+  ctx.font = `400 ${view.height * 0.036}px system-ui, sans-serif`;
+  ctx.fillText('Tap a level to play it — each has its own weapon', view.width / 2, view.height * 0.29);
+
+  const n = menu.length;
+  const top = view.height * 0.4;
+  const h = view.height * 0.44;
+  const gap = view.width * 0.014;
+  const colW = (view.width - gap * (n + 1)) / n;
+
+  menu.forEach((lvl, i) => {
+    const x = gap + i * (colW + gap);
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, top, colW, h, view.height * 0.02);
+    else ctx.rect(x, top, colW, h);
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,183,3,0.7)';
+    ctx.lineWidth = Math.max(1.5, view.height * 0.004);
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffb703';
+    ctx.font = `700 ${view.height * 0.07}px system-ui, sans-serif`;
+    ctx.fillText(`${lvl.n}`, x + colW / 2, top + h * 0.26);
+
+    // Weapon name, shrunk to fit the column so long names ("Spear-crossbow")
+    // don't spill over the edge.
+    let fs = view.height * 0.03;
+    ctx.font = `600 ${fs}px system-ui, sans-serif`;
+    const maxW = colW * 0.86;
+    while (fs > 6 && ctx.measureText(lvl.weapon).width > maxW) {
+      fs *= 0.9;
+      ctx.font = `600 ${fs}px system-ui, sans-serif`;
+    }
+    ctx.fillStyle = '#f2e8cf';
+    ctx.fillText(lvl.weapon, x + colW / 2, top + h * 0.62);
+  });
+}
+
 export function drawOverlay(ctx, lines, view) {
   if (!lines) return;
   ctx.fillStyle = 'rgba(30,20,10,0.84)';
@@ -570,5 +622,6 @@ export function drawScene(ctx, scene, view) {
   drawPower(ctx, scene.power, view);
   drawFloatingPoints(ctx, scene.pop, view);
   drawHud(ctx, scene.hud, view);
-  drawOverlay(ctx, scene.overlay, view);
+  if (scene.menu) drawMenu(ctx, scene.menu, view);
+  else drawOverlay(ctx, scene.overlay, view);
 }

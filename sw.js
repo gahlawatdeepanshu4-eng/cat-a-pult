@@ -1,5 +1,5 @@
 // Bump CACHE when any precached file changes.
-const CACHE = 'catapult-v7';
+const CACHE = 'catapult-v8';
 const ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const ASSETS = [
   './src/creatures.js',
   './src/levels.js',
   './src/scoring.js',
+  './src/weapons.js',
   './src/game.js',
   './src/render.js',
   './src/input.js',

@@ -105,6 +105,15 @@ jungle, sunset mesa). In sampler mode, show five distinct themes across L1–5.
     with a `targets + 3` floor. Sampler = one weapon per level (L1→L5).
   - 11 new tests (pierce/splash mechanics, selectors, launch scaling); the 55
     reachability sweeps now run with each level's weapon and still pass.
+- **Start-menu level picker** (`drawMenu` in `render.js`, wired in `main.js`).
+  Clearing site data resets the save to level 1, so a player could only ever see
+  the catapult without grinding. The picker shows one tappable column per level,
+  labelled with its weapon, so every weapon is one tap away. Only shown for a
+  short build (`TOTAL_LEVELS <= 8`); the campaign keeps the plain menu. In the
+  sampler, clearing/failing a level returns to the picker (not auto-advance) so
+  weapon-hopping is trivial. `input.js` now also reports the tap's absolute x.
+- **Service worker → `catapult-v8`**, and `src/weapons.js` added to its precache
+  (it was missing, which would break the game offline).
 
 ## Earlier this session (2026-07-19)
 
@@ -136,8 +145,10 @@ Creatures and the difficulty ramp are now **approved**. Most in need of eyes now
   importing the real modules and reading state/pixels back (e.g. build a run,
   call `drawScene` on a real canvas, sample pixels), not by screenshotting.
 - **Hard-refresh / clear site data after any change** — service worker (now
-  `catapult-v7`, network-first) plus an old cache-first worker can pin stale
-  files. On phone: Chrome → site settings → Clear & reset.
+  `catapult-v8`, network-first) plus an old cache-first worker can pin stale
+  files. On phone: Chrome → site settings → Clear & reset. **Note:** clearing
+  site data also wipes the save (`unlockedLevel` back to 1) — use the start-menu
+  level picker to jump straight to any level/weapon afterwards.
 - **Never do `createRun(save.unlockedLevel)` raw** — always clamp to
   `TOTAL_LEVELS` (a longer-build save must not break a shorter build).
 - The dev server (`npm run serve`) sometimes dies between turns; restart it.

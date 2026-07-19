@@ -28,6 +28,9 @@ export function createInput(canvas, { onRelease }) {
     onRelease?.({
       dx: finished.x - finished.startX,
       dy: finished.y - finished.startY,
+      // Absolute release point too, so a menu tap knows which level was hit.
+      x: finished.x,
+      y: finished.y,
     });
   }
 
