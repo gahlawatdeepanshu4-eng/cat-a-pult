@@ -333,10 +333,10 @@ function drawCreatures(ctx, creatures, view) {
 // swept point regardless.
 const PROJECTILE = {
   catapult: 'rock',
-  crossbow: 'bolt',
-  spearcrossbow: 'spear',
-  spear: 'spear',
-  bazooka: 'rocket',
+  crossbow: 'dart',
+  spearcrossbow: 'fork',
+  spear: 'bone',
+  bazooka: 'firework',
 };
 
 function roundRectPath(ctx, x, y, w, h, r) {
@@ -355,66 +355,88 @@ function drawProjectile(ctx, kind, x, y, r, angle) {
   ctx.lineJoin = 'round';
   const outline = () => { ctx.strokeStyle = '#2f2a22'; ctx.lineWidth = Math.max(1, r * 0.18); ctx.stroke(); };
 
-  if (kind === 'bolt' || kind === 'spear') {
-    const long = kind === 'spear' ? 3.4 : 2.6;
-    const L = r * long;
-    const w = r * (kind === 'spear' ? 0.34 : 0.4);
-    // Wooden shaft.
-    ctx.fillStyle = '#8a5a2b';
-    roundRectPath(ctx, -L, -w, L * 1.5, w * 2, w);
-    ctx.fill(); outline();
-    // Metal head, a leaf blade for the spear, a sharper point for the bolt.
-    const hl = r * (kind === 'spear' ? 1.5 : 1.1);
-    const hw = r * (kind === 'spear' ? 0.85 : 0.6);
-    ctx.fillStyle = '#cfd3d9';
-    ctx.beginPath();
-    ctx.moveTo(L * 0.5, -hw);
-    ctx.quadraticCurveTo(L * 0.5 + hl, -hw * 0.2, L * 0.5 + hl, 0);
-    ctx.quadraticCurveTo(L * 0.5 + hl, hw * 0.2, L * 0.5, hw);
-    ctx.closePath();
-    ctx.fill(); outline();
-    // Fletching at the tail.
-    ctx.fillStyle = '#c94f3a';
+  if (kind === 'dart') {
+    // Toy foam dart: orange body, soft suction-cup nose, blue tail fins.
+    const L = r * 2.0, w = r * 0.6;
+    ctx.fillStyle = '#2a7fff';
     for (const s of [-1, 1]) {
       ctx.beginPath();
       ctx.moveTo(-L, 0);
-      ctx.lineTo(-L - r * 0.9, s * w * 2.4);
-      ctx.lineTo(-L + r * 0.7, s * w * 0.6);
+      ctx.lineTo(-L - r * 0.8, s * w * 1.8);
+      ctx.lineTo(-L + r * 0.6, s * w * 0.5);
       ctx.closePath();
       ctx.fill();
     }
-  } else if (kind === 'rocket') {
-    const L = r * 1.9, w = r * 0.95;
-    // Exhaust flame behind.
-    ctx.fillStyle = 'rgba(255,150,40,0.9)';
+    ctx.fillStyle = '#ff8c1a';
+    roundRectPath(ctx, -L, -w, L * 1.4, w * 2, w);
+    ctx.fill(); outline();
+    // Suction cup.
+    ctx.fillStyle = '#ffd9a0';
     ctx.beginPath();
-    ctx.moveTo(-L, 0);
-    ctx.lineTo(-L - r * 1.6, -w * 0.5);
-    ctx.lineTo(-L - r * 1.1, 0);
-    ctx.lineTo(-L - r * 1.6, w * 0.5);
-    ctx.closePath();
-    ctx.fill();
-    // Fins.
-    ctx.fillStyle = '#3c4c28';
-    for (const s of [-1, 1]) {
-      ctx.beginPath();
-      ctx.moveTo(-L * 0.5, s * w);
-      ctx.lineTo(-L, s * w * 1.7);
-      ctx.lineTo(-L * 0.4, s * w * 0.4);
-      ctx.closePath();
+    ctx.ellipse(L * 0.5, 0, w * 0.9, w * 1.05, 0, 0, Math.PI * 2);
+    ctx.fill(); outline();
+  } else if (kind === 'fork') {
+    // A flying fork — four tines that skewer everything in a line.
+    const L = r * 2.6, w = r * 1.1;
+    ctx.fillStyle = '#cfd3d9';
+    // Handle.
+    roundRectPath(ctx, -L, -r * 0.3, L * 0.95, r * 0.6, r * 0.25);
+    ctx.fill(); outline();
+    // Base the tines spring from.
+    roundRectPath(ctx, -r * 0.2, -w, r * 0.5, w * 2, r * 0.2);
+    ctx.fill(); outline();
+    // Four tines.
+    for (const k of [-1.5, -0.5, 0.5, 1.5]) {
+      roundRectPath(ctx, r * 0.2, k * (w / 1.9) - r * 0.14, L * 0.9, r * 0.28, r * 0.12);
       ctx.fill(); outline();
     }
-    // Body.
-    ctx.fillStyle = '#5a6b3a';
-    roundRectPath(ctx, -L, -w, L * 1.5, w * 2, w * 0.6);
+  } else if (kind === 'bone') {
+    // A dino bone used as a spear: knobbly tail, sharpened point.
+    const L = r * 2.6, w = r * 0.5;
+    ctx.fillStyle = '#ece0c8';
+    roundRectPath(ctx, -L * 0.7, -w, L * 1.2, w * 2, w * 0.6);
     ctx.fill(); outline();
-    // Nose cone.
-    ctx.fillStyle = '#c0392b';
+    // Double knob at the tail.
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(-L * 0.7, s * w * 1.1, w * 0.95, 0, Math.PI * 2);
+      ctx.fill(); outline();
+    }
+    // Sharpened point.
     ctx.beginPath();
-    ctx.moveTo(L * 0.5, -w);
-    ctx.quadraticCurveTo(L * 1.4, 0, L * 0.5, w);
+    ctx.moveTo(L * 0.5, -w * 1.1);
+    ctx.lineTo(L * 1.2, 0);
+    ctx.lineTo(L * 0.5, w * 1.1);
     ctx.closePath();
     ctx.fill(); outline();
+  } else if (kind === 'firework') {
+    // A firework rocket: striped body, party-cone nose, a stick tail and sparks.
+    const L = r * 1.8, w = r * 0.9;
+    ctx.strokeStyle = '#8a5a2b';
+    ctx.lineWidth = Math.max(1, r * 0.22);
+    ctx.beginPath(); ctx.moveTo(-L, 0); ctx.lineTo(-L * 2.4, 0); ctx.stroke();
+    ctx.fillStyle = '#e5322b';
+    roundRectPath(ctx, -L, -w, L * 1.5, w * 2, w * 0.4);
+    ctx.fill(); outline();
+    // A white stripe.
+    ctx.fillStyle = '#fff';
+    roundRectPath(ctx, -L * 0.2, -w, r * 0.5, w * 2, r * 0.1);
+    ctx.fill();
+    // Party-cone nose.
+    ctx.fillStyle = '#ffd23a';
+    ctx.beginPath();
+    ctx.moveTo(L * 0.5, -w);
+    ctx.lineTo(L * 1.5, 0);
+    ctx.lineTo(L * 0.5, w);
+    ctx.closePath();
+    ctx.fill(); outline();
+    // Fuse sparks at the tail.
+    ctx.fillStyle = 'rgba(255,180,40,0.95)';
+    for (const s of [-1, 0, 1]) {
+      ctx.beginPath();
+      ctx.arc(-L * 1.9, s * w * 0.7, r * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+    }
   } else {
     // Rock: a plain stone.
     ctx.fillStyle = '#5b5348';
@@ -546,122 +568,137 @@ function drawHand(ctx, x, y, s, angle) {
   ctx.restore();
 }
 
-// Each non-catapult weapon is drawn compact and low, sitting in the bottom
-// margin of the screen and pointing up toward the aim: big enough to read, small
-// enough that it does not cover the creatures you are aiming at. Every one has a
-// distinct silhouette and colour so you can tell at a glance what you hold.
+// Each non-catapult weapon is a fun, cartoon variant drawn compact and low in
+// the bottom margin, pointing up toward the aim: big enough to read, small
+// enough that it never covers the creatures. Distinct silhouette + colour each.
 
-// Crossbow — the signature is the wide horizontal bow (a T). The steel variant
-// (the spear-crossbow) swaps to a metal-and-bronze palette with a reinforcing
-// second limb, so it never reads as the same weapon as the wooden crossbow.
-function drawCrossbow(ctx, view, aimAngle, reach, steel) {
+// Toy dart blaster (the "crossbow"): a chunky orange body, blue barrel, yellow
+// hopper on top. Fires a foam dart.
+function drawDartGun(ctx, view, aimAngle, reach) {
   const s = view.height;
-  const grip = { x: view.width / 2, y: s * 1.05 };
-  const stock = steel ? '#9aa0a8' : '#8a5a2b';
-  const stockEdge = steel ? '#5f6570' : '#5a3a1c';
-  const limb = steel ? '#b5842f' : '#3a3f47';
+  const grip = { x: view.width / 2, y: s * 1.06 };
   ctx.save();
   ctx.translate(grip.x, grip.y);
   ctx.rotate(aimAngle);
-  // Stock.
-  ctx.fillStyle = stock;
-  roundRectPath(ctx, 0, -reach * 0.07, reach, reach * 0.14, reach * 0.05);
+  // Body.
+  ctx.fillStyle = '#ff8c1a';
+  roundRectPath(ctx, -reach * 0.08, -reach * 0.18, reach * 0.7, reach * 0.36, reach * 0.1);
   ctx.fill();
-  ctx.strokeStyle = stockEdge; ctx.lineWidth = Math.max(1, s * 0.005); ctx.stroke();
-  // Wide bow limbs near the front.
-  const bx = reach * 0.82;
-  const span = reach * 1.05;
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = limb;
-  ctx.lineWidth = s * (steel ? 0.02 : 0.024);
+  ctx.strokeStyle = '#2f2a22'; ctx.lineWidth = Math.max(1, s * 0.006); ctx.stroke();
+  // Barrel.
+  ctx.fillStyle = '#2a7fff';
+  roundRectPath(ctx, reach * 0.55, -reach * 0.1, reach * 0.5, reach * 0.2, reach * 0.07);
+  ctx.fill(); ctx.stroke();
+  // Yellow hopper.
+  ctx.fillStyle = '#ffd23a';
   ctx.beginPath();
-  ctx.moveTo(bx, -span);
-  ctx.quadraticCurveTo(bx + reach * 0.16, 0, bx, span);
-  ctx.stroke();
-  if (steel) {
-    ctx.lineWidth = s * 0.01;
-    ctx.beginPath();
-    ctx.moveTo(bx - reach * 0.12, -span * 0.78);
-    ctx.quadraticCurveTo(bx + reach * 0.05, 0, bx - reach * 0.12, span * 0.78);
-    ctx.stroke();
-  }
-  // String.
-  ctx.strokeStyle = 'rgba(240,240,240,0.9)';
-  ctx.lineWidth = Math.max(1, s * 0.004);
-  ctx.beginPath();
-  ctx.moveTo(bx, -span); ctx.lineTo(reach * 0.3, 0); ctx.lineTo(bx, span);
-  ctx.stroke();
+  ctx.ellipse(reach * 0.28, -reach * 0.28, reach * 0.16, reach * 0.16, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
   ctx.restore();
 
-  drawHand(ctx, grip.x, grip.y, s * 0.045, aimAngle);
+  drawHand(ctx, grip.x, grip.y, s * 0.05, aimAngle);
   return { x: grip.x + Math.cos(aimAngle) * reach, y: grip.y + Math.sin(aimAngle) * reach, grip };
 }
 
-// A thrown spear: a single shaft with a leather grip wrap and a steel leaf
-// blade — no crossbar, so it never looks like the crossbows. The spear IS the
-// round, so it only shows while loaded; once thrown the hand is empty.
-function drawSpear(ctx, view, aimAngle, reach, loaded) {
+// Giant fork (the "spear-crossbow"): four big shiny tines — it literally
+// skewers a line of creatures. Fires a flying fork.
+function drawGiantFork(ctx, view, aimAngle, reach) {
   const s = view.height;
   const grip = { x: view.width / 2, y: s * 1.05 };
-  const a = aimAngle - 0.1; // held at a slight throwing cant
+  ctx.save();
+  ctx.translate(grip.x, grip.y);
+  ctx.rotate(aimAngle);
+  ctx.fillStyle = '#cfd3d9';
+  ctx.strokeStyle = '#6a6f78';
+  ctx.lineWidth = Math.max(1, s * 0.006);
+  // Handle.
+  roundRectPath(ctx, 0, -reach * 0.06, reach * 0.55, reach * 0.12, reach * 0.05);
+  ctx.fill(); ctx.stroke();
+  // Base the tines spring from.
+  roundRectPath(ctx, reach * 0.5, -reach * 0.5, reach * 0.12, reach, reach * 0.05);
+  ctx.fill(); ctx.stroke();
+  // Four tines.
+  for (const k of [-1.5, -0.5, 0.5, 1.5]) {
+    roundRectPath(ctx, reach * 0.6, k * reach * 0.24 - reach * 0.045, reach * 0.5, reach * 0.09, reach * 0.04);
+    ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
+
+  drawHand(ctx, grip.x, grip.y, s * 0.05, aimAngle);
+  return { x: grip.x + Math.cos(aimAngle) * reach, y: grip.y + Math.sin(aimAngle) * reach, grip };
+}
+
+// T-rex-bone spear (the "spear"): a knobbly dino bone with a sharpened tip. It
+// is its own round, so it only shows while loaded; once thrown the hand is empty.
+function drawBoneSpear(ctx, view, aimAngle, reach, loaded) {
+  const s = view.height;
+  const grip = { x: view.width / 2, y: s * 1.05 };
+  const a = aimAngle - 0.08; // a slight throwing cant
   drawHand(ctx, grip.x, grip.y, s * 0.05, a);
   if (loaded) {
     ctx.save();
     ctx.translate(grip.x, grip.y);
     ctx.rotate(a);
-    ctx.fillStyle = '#9a6a34';
-    roundRectPath(ctx, 0, -reach * 0.035, reach * 1.02, reach * 0.07, reach * 0.03);
-    ctx.fill();
-    ctx.strokeStyle = '#5a3a1c'; ctx.lineWidth = Math.max(1, s * 0.005); ctx.stroke();
-    // Leather grip wrap.
-    ctx.strokeStyle = '#4a2f18'; ctx.lineWidth = s * 0.012;
-    for (const dx of [0.1, 0.17, 0.24]) {
-      ctx.beginPath(); ctx.moveTo(reach * dx, -reach * 0.05); ctx.lineTo(reach * dx, reach * 0.05); ctx.stroke();
+    ctx.fillStyle = '#ece0c8';
+    ctx.strokeStyle = '#b8a980';
+    ctx.lineWidth = Math.max(1, s * 0.006);
+    // Shaft.
+    roundRectPath(ctx, 0, -reach * 0.05, reach, reach * 0.1, reach * 0.04);
+    ctx.fill(); ctx.stroke();
+    // Knobbly bone ends near the grip.
+    for (const sgn of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(reach * 0.06, sgn * reach * 0.09, reach * 0.09, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
     }
-    // Steel leaf blade.
-    const bx = reach;
-    ctx.fillStyle = '#cfd3d9';
+    // Sharpened point.
     ctx.beginPath();
-    ctx.moveTo(bx, -reach * 0.1);
-    ctx.quadraticCurveTo(bx + reach * 0.3, 0, bx, reach * 0.1);
-    ctx.quadraticCurveTo(bx + reach * 0.08, 0, bx, -reach * 0.1);
+    ctx.moveTo(reach * 0.95, -reach * 0.1);
+    ctx.lineTo(reach * 1.22, 0);
+    ctx.lineTo(reach * 0.95, reach * 0.1);
     ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = '#2f2a22'; ctx.lineWidth = Math.max(1, s * 0.005); ctx.stroke();
+    ctx.fill(); ctx.stroke();
     ctx.restore();
   }
   return { grip };
 }
 
-// A shoulder-fired tube: a fat olive cylinder with a flared muzzle, a rear
-// blast cone and a top sight. Nothing else looks like it.
-function drawBazooka(ctx, view, aimAngle, reach) {
+// Fireworks cannon (the "bazooka"): a festive striped mortar tube with sparks
+// at the muzzle. Lobs a firework rocket that bursts on impact.
+function drawFireworks(ctx, view, aimAngle, reach) {
   const s = view.height;
   const grip = { x: view.width / 2, y: s * 1.06 };
-  const w = reach * 0.32;
+  const w = reach * 0.3;
   ctx.save();
   ctx.translate(grip.x, grip.y);
   ctx.rotate(aimAngle);
-  ctx.fillStyle = '#556b3a';
-  roundRectPath(ctx, 0, -w, reach * 0.9, w * 2, w * 0.5);
+  // Tube.
+  ctx.fillStyle = '#6a3fb0';
+  roundRectPath(ctx, 0, -w, reach * 0.78, w * 2, w * 0.4);
   ctx.fill();
   ctx.strokeStyle = '#2f2a22'; ctx.lineWidth = Math.max(1, s * 0.006); ctx.stroke();
-  // Flared muzzle.
-  ctx.fillStyle = '#3c4c28';
-  roundRectPath(ctx, reach * 0.8, -w * 1.3, reach * 0.12, w * 2.6, w * 0.3);
+  // Star spots.
+  ctx.fillStyle = '#ffd23a';
+  for (const dx of [0.2, 0.45]) {
+    ctx.beginPath();
+    ctx.arc(reach * dx, 0, w * 0.28, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Muzzle rim.
+  ctx.fillStyle = '#4a2a80';
+  roundRectPath(ctx, reach * 0.68, -w * 1.25, reach * 0.1, w * 2.5, w * 0.3);
   ctx.fill(); ctx.stroke();
-  // Rear blast cone.
-  ctx.beginPath();
-  ctx.moveTo(0, -w * 0.85); ctx.lineTo(-reach * 0.14, 0); ctx.lineTo(0, w * 0.85); ctx.closePath();
-  ctx.fill(); ctx.stroke();
-  // Top sight.
-  ctx.fillStyle = '#2f2a22';
-  roundRectPath(ctx, reach * 0.4, -w * 1.6, reach * 0.03, w * 0.7, w * 0.1);
-  ctx.fill();
+  // Sparks at the muzzle.
+  ctx.fillStyle = 'rgba(255,190,50,0.95)';
+  for (const k of [-1, 0, 1]) {
+    ctx.beginPath();
+    ctx.arc(reach * 0.86, k * w * 0.7, w * 0.16, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 
   drawHand(ctx, grip.x, grip.y, s * 0.055, aimAngle);
-  return { x: grip.x + Math.cos(aimAngle) * reach * 0.9, y: grip.y + Math.sin(aimAngle) * reach * 0.9, grip };
+  return { x: grip.x + Math.cos(aimAngle) * reach * 0.78, y: grip.y + Math.sin(aimAngle) * reach * 0.78, grip };
 }
 
 // Draw whichever weapon this level uses — held low in the view, pointing where
@@ -685,15 +722,15 @@ function drawLauncher(ctx, view, scene) {
   ctx.save();
   ctx.globalAlpha = 0.9;
   let muzzle;
-  if (name === 'crossbow') muzzle = drawCrossbow(ctx, view, aimAngle, reach, false);
-  else if (name === 'spearcrossbow') muzzle = drawCrossbow(ctx, view, aimAngle, reach, true);
-  else if (name === 'spear') muzzle = drawSpear(ctx, view, aimAngle, reach, showRound);
-  else if (name === 'bazooka') muzzle = drawBazooka(ctx, view, aimAngle, reach);
+  if (name === 'crossbow') muzzle = drawDartGun(ctx, view, aimAngle, reach);
+  else if (name === 'spearcrossbow') muzzle = drawGiantFork(ctx, view, aimAngle, reach);
+  else if (name === 'spear') muzzle = drawBoneSpear(ctx, view, aimAngle, reach, showRound);
+  else if (name === 'bazooka') muzzle = drawFireworks(ctx, view, aimAngle, reach);
 
-  // The loaded round on the muzzle while aiming. The spear is its own round and
-  // draws itself above, so it is skipped here.
+  // The loaded round on the muzzle while aiming. The bone spear is its own round
+  // and draws itself above, so it is skipped here.
   if (showRound && muzzle && name !== 'spear') {
-    const r = name === 'bazooka' ? view.height * 0.028 : view.height * 0.016;
+    const r = name === 'bazooka' ? view.height * 0.03 : view.height * 0.02;
     drawProjectile(ctx, PROJECTILE[name] ?? 'rock', muzzle.x, muzzle.y, r, aimAngle);
   }
   ctx.globalAlpha = 1;
