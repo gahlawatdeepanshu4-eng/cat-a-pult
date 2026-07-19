@@ -859,7 +859,10 @@ export function drawPower(ctx, power, view) {
   const h = view.height * 0.4;
   // Push in past the left safe-area inset (notch / Dynamic Island) so the gauge
   // isn't clipped; 0 inset on notchless screens leaves it exactly where it was.
-  const x = (view.safe?.left ?? 0) + view.width * 0.035;
+  // Then pull it 0.4 cm back toward the edge (player's tuning) — 1cm ≈ 37.8 CSS
+  // px, times dpr for device px. Floored at 0 so it can't leave the screen.
+  const nudge = 0.4 * 37.795 * (view.dpr ?? 1);
+  const x = Math.max(0, (view.safe?.left ?? 0) + view.width * 0.035 - nudge);
   const y = view.height * 0.32;
 
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
