@@ -1,6 +1,6 @@
 import { project } from './project.js';
 import { radiusOf, centreOf, KIND } from './creatures.js';
-import { WALL_Z, NEAR_Z, ROCK_RADIUS } from './constants.js';
+import { WALL_Z, ROCK_RADIUS } from './constants.js';
 
 function emoji(ctx, glyph, x, y, px) {
   if (px < 3) return;
@@ -346,44 +346,49 @@ function drawGround(ctx, view, theme) {
   ctx.fillRect(0, atWall, view.width, view.height - atWall);
 }
 
-// The fenced yard the creatures roam in. Its shape is identical on every level
-// (a back run at the far edge plus two sides running toward the player); only
-// the colour changes with the theme. Posts and rails are projected in
-// perspective so the yard reads as a real enclosure with depth.
-const YARD = { farW: 780, nearW: 430, nearZ: NEAR_Z - 30, postH: 150, rail: [140, 75] };
+// The fenced yard the creatures roam in — a big rectangular cattle pen. Its
+// shape is identical on every level; only the colour changes with the theme.
+// The front (the player's side) is open, so you see three sides: a back wall at
+// the far edge and two straight side walls at a CONSTANT world half-width,
+// running from right in front of the player back to the far wall. In
+// perspective the sides start wide at the bottom corners and converge toward the
+// back, so it reads as standing inside the pen looking at its three walls.
+//
+// penW must exceed the widest the creatures ever wander (xLimitAt caps at
+// ARENA_HALF_WIDTH - 90 = 730), so every creature is always inside the pen.
+const YARD = { penW: 790, nearZ: 90, postH: 165, rail: [150, 100, 55] };
 
 function drawFence(ctx, view, theme) {
   const col = theme?.fence ?? '#8a6b45';
   const railCol = shade(col, -30);
   const capCol = shade(col, 18);
-  const { farW, nearW, nearZ, postH } = YARD;
+  const { penW, nearZ, postH } = YARD;
 
-  // Base points (world x,z) for the three runs: back, left side, right side.
+  // Back wall: a run of posts across the far edge.
   const back = [];
-  for (let i = 0; i <= 8; i++) back.push({ x: -farW + (2 * farW) * (i / 8), z: WALL_Z });
-  const left = [], right = [];
-  for (let i = 0; i <= 5; i++) {
-    const t = i / 5;
-    const z = nearZ + (WALL_Z - nearZ) * t;
-    const x = nearW + (farW - nearW) * t;
-    left.push({ x: -x, z });
-    right.push({ x, z });
-  }
+  for (let i = 0; i <= 8; i++) back.push({ x: -penW + (2 * penW) * (i / 8), z: WALL_Z });
+  // Side walls: straight lines at constant world half-width, from near the
+  // player back to the wall — so they converge toward the horizon like a pen.
+  const zStops = [nearZ, 260, 520, 820, 1160, WALL_Z];
+  const left = zStops.map((z) => ({ x: -penW, z }));
+  const right = zStops.map((z) => ({ x: penW, z }));
 
   const drawRun = (pts) => {
-    // Rails first, then posts over them.
+    // Rails, drawn segment by segment so they taper with depth instead of
+    // staying one thick width down a long receding side wall.
+    ctx.strokeStyle = railCol;
+    ctx.lineCap = 'round';
     for (const rh of YARD.rail) {
-      ctx.strokeStyle = railCol;
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      pts.forEach((p, i) => {
-        const s = project({ x: p.x, y: rh, z: p.z }, view);
-        if (i === 0) ctx.moveTo(s.x, s.y); else ctx.lineTo(s.x, s.y);
-      });
-      // Width from the nearest point so the rail has heft.
-      const nearScale = project({ x: pts[0].x, y: 0, z: pts[0].z }, view).scale * view.unit;
-      ctx.lineWidth = Math.max(1.5, 10 * nearScale);
-      ctx.stroke();
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = project({ x: pts[i].x, y: rh, z: pts[i].z }, view);
+        const b = project({ x: pts[i + 1].x, y: rh, z: pts[i + 1].z }, view);
+        const sc = project({ x: pts[i].x, y: 0, z: pts[i].z }, view).scale * view.unit;
+        ctx.lineWidth = Math.max(1, 9 * sc);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
     }
     for (const p of pts) {
       const bot = project({ x: p.x, y: 0, z: p.z }, view);
