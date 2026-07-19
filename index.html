@@ -18,6 +18,15 @@
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
+  /* Keep the game clear of the notch / Dynamic Island / home indicator by
+     padding the play area in by each edge's safe-area inset (0 on phones that
+     have none). The canvas fills what's left, so every edge control moves in. */
+  body {
+    box-sizing: border-box;
+    padding:
+      env(safe-area-inset-top) env(safe-area-inset-right)
+      env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
   canvas { display: block; width: 100%; height: 100%; }
   #rotate {
     position: fixed;
