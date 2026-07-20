@@ -52,6 +52,11 @@ let settingsReturn = 'home'; // where the settings Back button goes
 let pop = null;
 let launchAnim = 0; // 1 right after a shot, decays to 0 — the weapon's throw/recoil
 
+// Auto-update bookkeeping (see the service-worker block at the bottom): when a
+// new version activates we reload into it, but hold off if a game is in play.
+let refreshing = false;
+let pendingReload = false;
+
 // Audio: generated live. Master mute + independent music/SFX toggles, each read
 // from its saved setting.
 const audioPrefs = loadAudioPrefs();
@@ -256,6 +261,10 @@ function resize() {
 }
 
 function update(dt) {
+  // A new version was installed while we were mid-game — apply it now that the
+  // player has left the play screen, so the reload never interrupts a throw.
+  if (pendingReload && screen !== 'play') { refreshing = true; window.location.reload(); return; }
+
   // Slow enough that the splat lands, is read, and the score follows it.
   if (pop) pop = pop.life > 0 ? { ...pop, life: pop.life - dt * 0.85 } : null;
   // The throw/recoil plays out over ~0.25s.
@@ -366,10 +375,29 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
+// Service worker: offline support + auto-update. The worker is network-first
+// and calls skipWaiting, so a fresh deploy installs and activates on the next
+// visit; when it takes control we reload into the new version (deferred out of
+// active play by update()). This is what lets an installed app update itself —
+// no uninstall/reinstall — for any code change. (Manifest-only changes, like
+// the display mode, still need a reinstall because Android caches the manifest
+// at install time.)
 if ('serviceWorker' in navigator) {
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing || !hadController) return; // ignore the first-ever control
+    if (screen === 'play') { pendingReload = true; return; } // finish the level first
+    refreshing = true;
+    window.location.reload();
+  });
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch((err) => {
-      console.warn('service worker registration failed', err);
-    });
+    navigator.serviceWorker.register('./sw.js').then((reg) => {
+      const check = () => reg.update().catch(() => {});
+      // Re-check for a new version each time the app is brought back to the fore.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check();
+      });
+      check();
+    }).catch((err) => console.warn('service worker registration failed', err));
   });
 }
