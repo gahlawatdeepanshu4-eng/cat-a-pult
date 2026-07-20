@@ -306,7 +306,7 @@ function overlayLines() {
     ];
   }
   if (screen === 'failed') {
-    return ['Out of rocks', `${aliveCount(run)} still standing`,
+    return [`Out of ${weaponOf(run.spec.weapon).ammo}`, `${aliveCount(run)} still standing`,
       MENU_LEVELS ? 'Tap to pick another level' : 'Tap to try again'];
   }
   if (screen === 'done') {
@@ -351,6 +351,7 @@ function frame(now) {
         score: run.score,
         left: aliveCount(run),
         weapon: weapon.name,
+        weaponId: run.spec?.weapon ?? 'catapult',
       },
       menu: screen === 'menu' && MENU_LEVELS ? MENU_LEVELS : null,
       overlay: screen === 'menu' && MENU_LEVELS ? null : overlayLines(),

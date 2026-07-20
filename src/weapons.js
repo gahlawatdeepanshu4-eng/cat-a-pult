@@ -18,11 +18,11 @@
 // creature placement never has to change per weapon. Only the vertical arc
 // differs, and the per-level reachability test re-proves each weapon anyway.
 export const WEAPON = {
-  catapult:      { name: 'Catapult',    speedScale: 1.0,  gravityScale: 1.0,  pierce: false, blastRadius: 0,   ammoModifier: 0 },
-  crossbow:      { name: 'Dart-gun',    speedScale: 1.7,  gravityScale: 0.30, pierce: false, blastRadius: 0,   ammoModifier: 0 },
-  spearcrossbow: { name: 'Trident',     speedScale: 1.7,  gravityScale: 0.30, pierce: true,  blastRadius: 0,   ammoModifier: -1 },
-  spear:         { name: 'Steel-dick',  speedScale: 1.35, gravityScale: 0.60, pierce: true,  blastRadius: 0,   ammoModifier: -1 },
-  bazooka:       { name: 'Ass-blaster', speedScale: 0.95, gravityScale: 0.90, pierce: false, blastRadius: 150, ammoModifier: -2 },
+  catapult:      { name: 'Catapult',    ammo: 'rocks',        speedScale: 1.0,  gravityScale: 1.0,  pierce: false, blastRadius: 0,   ammoModifier: 0 },
+  crossbow:      { name: 'Dart-gun',    ammo: 'darts',        speedScale: 1.7,  gravityScale: 0.30, pierce: false, blastRadius: 0,   ammoModifier: 0 },
+  spearcrossbow: { name: 'Trident',     ammo: 'tridents',     speedScale: 1.7,  gravityScale: 0.30, pierce: true,  blastRadius: 0,   ammoModifier: -1 },
+  spear:         { name: 'Steel-dick',  ammo: 'steel dicks',  speedScale: 1.35, gravityScale: 0.60, pierce: true,  blastRadius: 0,   ammoModifier: -1 },
+  bazooka:       { name: 'Ass-blaster', ammo: 'ass blasters', speedScale: 0.95, gravityScale: 0.90, pierce: false, blastRadius: 150, ammoModifier: -2 },
 };
 
 // The order weapons unlock in — also the sampler's one-weapon-per-level map.

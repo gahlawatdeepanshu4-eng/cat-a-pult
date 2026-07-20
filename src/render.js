@@ -903,7 +903,14 @@ function drawHud(ctx, hud, view) {
   ctx.textAlign = 'right';
   ctx.font = `700 ${size}px system-ui, sans-serif`;
   ctx.fillStyle = '#e8443a';
-  ctx.fillText(`🪨 x ${hud.rocks}`, view.width - pad, pad);
+  const countText = `x ${hud.rocks}`;
+  ctx.fillText(countText, view.width - pad, pad);
+  // The ammo icon is the weapon's own projectile, so it matches what you throw.
+  const tw = ctx.measureText(countText).width;
+  drawProjectile(
+    ctx, PROJECTILE[hud.weaponId] ?? 'rock',
+    view.width - pad - tw - size * 0.95, pad + size * 0.5, size * 0.32, 0,
+  );
   if (hud.weapon) {
     ctx.font = `600 ${size * 0.72}px system-ui, sans-serif`;
     ctx.fillStyle = '#f2e8cf';
